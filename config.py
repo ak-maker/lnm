@@ -11,8 +11,8 @@ CONFIG_PATH = Path("./.env")
 # TODO: Refactor ENV variables with SGPT_ prefix.
 DEFAULT_CONFIG = {
     "model": os.getenv("MODEL", "gpt4-1106-preview"),
-    "base_url": os.getenv("OPENAI_BASE_URL", "https://drchat.xyz"),
-    "api_key": os.getenv("OPENAI_API_KEY", "sk-AQskrHBcKQ1k0sR5vUmwDQ")
+    "base_url": os.getenv("OPENAI_BASE_URL", the_url),
+    "api_key": os.getenv("OPENAI_API_KEY", your_key)
     # New features might add their own config variables here.
 }
 
