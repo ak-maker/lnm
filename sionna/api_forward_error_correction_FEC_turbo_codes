@@ -1,0 +1,273 @@
+Sionna
+Quickstart
+Discover Sionna
+Tutorials
+“Made with Sionna”
+Primer on Electromagnetics
+API Documentation
+Forward Error Correction (FEC)
+Linear Codes
+Low-Density Parity-Check (LDPC)
+Polar Codes
+Convolutional Codes
+Turbo Codes
+Turbo Encoding
+Turbo Decoding
+Turbo Utility Functions
+Cyclic Redundancy Check (CRC)
+Interleaving
+Scrambling
+Utility Functions
+Mapping
+Channel
+Orthogonal Frequency-Division Multiplexing (OFDM)
+Multiple-Input Multiple-Output (MIMO)
+5G NR
+Ray Tracing
+Signal
+Utility Functions
+Configuration
+Discussions
+Report an Issue
+» API Documentation » Forward Error Correction (FEC) » Turbo Codes
+Turbo Codes
+This module supports encoding and decoding of Turbo codes [Berrou], e.g., as used in the LTE wireless standard. The convolutional component encoders and decoders are composed of the ConvEncoder and BCJRDecoder layers, respectively.
+Please note that various notations are used in literature to represent the generator polynomials for the underlying convolutional codes. For simplicity, TurboEncoder only accepts the binary format, i.e., 10011, for the generator polynomial which corresponds to the polynomial
+1 + D^3 + D^4
+.
+The following code snippet shows how to set-up a rate-1/3, constraint-length-4 TurboEncoder and the corresponding TurboDecoder. You can find further examples in the Channel Coding Tutorial Notebook.
+Setting-up:
+encoder = TurboEncoder(constraint_length=4, # Desired constraint length of the polynomials
+                       rate=1/3,  # Desired rate of Turbo code
+                       terminate=True) # Terminate the constituent convolutional encoders to all-zero state
+# or
+encoder = TurboEncoder(gen_poly=gen_poly, # Generator polynomials to use in the underlying convolutional encoders
+                       rate=1/3, # Rate of the desired Turbo code
+                       terminate=False) # Do not terminate the constituent convolutional encoders
+
+# the decoder can be initialized with a reference to the encoder
+decoder = TurboDecoder(encoder,
+                       num_iter=6, # Number of iterations between component BCJR decoders
+                       algorithm="map", # can be also "maxlog"
+                       hard_out=True) # hard_decide output
+Running the encoder / decoder:
+# --- encoder ---
+# u contains the information bits to be encoded and has shape [...,k].
+# c contains the turbo encoded codewords and has shape [...,n], where n=k/rate when terminate is False.
+c = encoder(u)
+
+# --- decoder ---
+# llr contains the log-likelihood ratio values from the de-mapper and has shape [...,n].
+# u_hat contains the estimated information bits and has shape [...,k].
+u_hat = decoder(llr)
+Turbo Encoding
+class
+sionna.fec.turbo.TurboEncoder(gen_poly=None, constraint_length=3, rate=1 / 3, terminate=False, interleaver_type='3GPP', output_dtype=tf.float32, **kwargs)[source]
+Performs encoding of information bits to a Turbo code codeword [Berrou]. Implements the standard Turbo code framework [Berrou]: Two identical rate-1/2 convolutional encoders ConvEncoder are combined to produce a rate-1/3 Turbo code. Further, puncturing to attain a rate-1/2 Turbo code is supported.
+The class inherits from the Keras layer class and can be used as layer in a Keras model.
+Parameters
+gen_poly (tuple) – Tuple of strings with each string being a 0,1 sequence. If None, constraint_length must be provided.
+constraint_length (int) – Valid values are between 3 and 6 inclusive. Only required if gen_poly is None.
+rate (float) – Valid values are 1/3 and 1/2. Note that rate here denotes the design rate of the Turbo code. If terminate is True, a small rate-loss occurs.
+terminate (boolean) – Underlying convolutional encoders are terminated to all zero state if True. If terminated, the true rate of the code is slightly lower than rate.
+interleaver_type (str) – Valid values are “3GPP” or “random”. Determines the choice of the interleaver to interleave the message bits before input to the second convolutional encoder. If “3GPP”, the Turbo code interleaver from the 3GPP LTE standard [3GPPTS36212_Turbo] is used. If “random”, a random interleaver is used.
+output_dtype (tf.DType) – Defaults to tf.float32. Defines the output datatype of the layer.
+Input
+inputs ([…,k], tf.float32) – 2+D tensor of information bits where k is the information length
+Output
+[…,k/rate], tf.float32 – 2+D tensor where rate is provided as input parameter. The output is the encoded codeword for the input information tensor. When terminate is True, the effective rate of the Turbo code is slightly less than rate.
+Note
+Various notations are used in literature to represent the generator polynomials for convolutional codes. For simplicity TurboEncoder only accepts the binary format, i.e., 10011, for the gen_poly argument which corresponds to the polynomial
+1 + D^3 + D^4
+.
+Note that Turbo codes require the underlying convolutional encoders to be recursive systematic encoders. Only then the channel output from the systematic part of the first encoder can be used to decode the second encoder.
+Also note that constraint_length and memory are two different terms often used to denote the strength of the convolutional code. In this sub-package we use constraint_length. For example, the polynomial 10011 has a constraint_length of 5, however its memory is only 4.
+When terminate is True, the true rate of the Turbo code is slightly lower than rate. It can be computed as
+\frac{k}{\frac{k}{r}+\frac{4\mu}{3r}}
+where r denotes rate and
+\mu
+is the constraint_length - 1. For example, in 3GPP, constraint_length = 4, terminate = True, for rate = 1/3, true rate is equal to
+\frac{k}{3k+12}
+.
+property
+coderate
+Rate of the code used in the encoder
+property
+constraint_length
+Constraint length of the encoder
+property
+gen_poly
+Generator polynomial used by the encoder
+property
+k
+Number of information bits per codeword
+property
+n
+Number of codeword bits
+property
+punct_pattern
+Puncturing pattern for the Turbo codeword
+property
+terminate
+Indicates if the convolutional encoders are terminated
+property
+trellis
+Trellis object used during encoding
+Turbo Decoding
+class
+sionna.fec.turbo.TurboDecoder(encoder=None, gen_poly=None, rate=1 / 3, constraint_length=None, interleaver='3GPP', terminate=False, num_iter=6, hard_out=True, algorithm='map', output_dtype=tf.float32, **kwargs)[source]
+Turbo code decoder based on BCJR component decoders [Berrou]. Takes as input LLRs and returns LLRs or hard decided bits, i.e., an estimate of the information tensor.
+This decoder is based on the BCJRDecoder and, thus, internally instantiates two BCJRDecoder layers.
+The class inherits from the Keras layer class and can be used as layer in a Keras model.
+Parameters
+encoder (TurboEncoder) – If encoder is provided as input, the following input parameters are not required and will be ignored: gen_poly, rate, constraint_length, terminate, interleaver. They will be inferred from the encoder object itself. If encoder is None, the above parameters must be provided explicitly.
+gen_poly (tuple) – Tuple of strings with each string being a 0, 1 sequence. If None, rate and constraint_length must be provided.
+rate (float) – Rate of the Turbo code. Valid values are 1/3 and 1/2. Note that gen_poly, if provided, is used to encode the underlying convolutional code, which traditionally has rate 1/2.
+constraint_length (int) – Valid values are between 3 and 6 inclusive. Only required if encoder and gen_poly are None.
+interleaver (str) – “3GPP” or “Random”. If “3GPP”, the internal interleaver for Turbo codes as specified in [3GPPTS36212_Turbo] will be used. Only required if encoder is None.
+terminate (bool) – If True, the two underlying convolutional encoders are assumed to have terminated to all zero state.
+num_iter (int) – Number of iterations for the Turbo decoding to run. Each iteration of Turbo decoding entails one BCJR decoder for each of the underlying convolutional code components.
+hard_out (boolean) – Defaults to True and indicates whether to output hard or soft decisions on the decoded information vector. True implies a hard- decoded information vector of 0/1’s is output. False implies decoded LLRs of the information is output.
+algorithm (str) – Defaults to map. Indicates the implemented BCJR algorithm, where map denotes the exact MAP algorithm, log indicates the exact MAP implementation, but in log-domain, and maxlog indicates the approximated MAP implementation in log-domain, where
+\log(e^{a}+e^{b}) \sim \max(a,b)
+.
+output_dtype (tf.DType) – Defaults to tf.float32. Defines the output datatype of the layer.
+Input
+inputs (tf.float32) – 2+D tensor of shape […,n] containing the (noisy) channel output symbols where n is the codeword length
+Output
+tf.float32 – 2+D tensor of shape […,coderate*n] containing the estimates of the information bit tensor
+Note
+For decoding, input logits defined as
+\operatorname{log} \frac{p(x=1)}{p(x=0)}
+are assumed for compatibility with the rest of Sionna. Internally, log-likelihood ratios (LLRs) with definition
+\operatorname{log} \frac{p(x=0)}{p(x=1)}
+are used.
+property
+coderate
+Rate of the code used in the encoder
+property
+constraint_length
+Constraint length of the encoder
+depuncture(y)[source]
+Given a tensor y of shape [batch, n], depuncture() scatters y elements into shape [batch, 3*rate*n] where the extra elements are filled with 0.
+For e.g., if input is y, rate is 1/2 and punct_pattern is [1, 1, 0, 1, 0, 1], then the output is [y[0], y[1], 0., y[2], 0., y[3], y[4], y[5], 0., … ,].
+property
+gen_poly
+Generator polynomial used by the encoder
+property
+k
+Number of information bits per codeword
+property
+n
+Number of codeword bits
+property
+trellis
+Trellis object used during encoding
+Turbo Utility Functions
+class
+sionna.fec.turbo.TurboTermination(constraint_length, conv_n=2, num_conv_encs=2, num_bit_streams=3)[source]
+Termination object, handles the transformation of termination bits from the convolutional encoders to a Turbo codeword. Similarly, it handles the transformation of channel symbols corresponding to the termination of a Turbo codeword to the underlying convolutional codewords.
+Parameters
+constraint_length (int) – Constraint length of the convolutional encoder used in the Turbo code. Note that the memory of the encoder is constraint_length - 1.
+conv_n (int) – Number of output bits for one state transition in the underlying convolutional encoder
+num_conv_encs (int) – Number of parallel convolutional encoders used in the Turbo code
+num_bit_streams (int) – Number of output bit streams from Turbo code
+get_num_term_syms()[source]
+Computes the number of termination symbols for the Turbo code based on the underlying convolutional code parameters, primarily the memory
+μ
+. Note that it is assumed that one Turbo symbol implies num_bitstreams bits.
+Input
+None
+Output
+turbo_term_syms (int) – Total number of termination symbols for the Turbo Code. One symbol equals num_bitstreams bits.
+term_bits_turbo2conv(term_bits)[source]
+This method splits the termination symbols from a Turbo codeword to the termination symbols corresponding to the two convolutional encoders, respectively.
+Let’s assume
+\mu=4
+and the underlying convolutional encoders are systematic and rate-1/2, for demonstration purposes.
+Let term_bits tensor, corresponding to the termination symbols of the Turbo codeword be as following:
+y = [x_1(K), z_1(K), x_1(K+1), z_1(K+1), x_1(K+2), z_1(K+2)
+,
+x_1(K+3), z_1(K+3), x_2(K), z_2(K), x_2(K+1), z_2(K+1),
+x_2(K+2), z_2(K+2), x_2(K+3), z_2(K+3), 0, 0]
+The two termination tensors corresponding to the convolutional encoders are:
+y[0,..., 2\mu]
+,
+y[2\mu,..., 4\mu]
+. The output from this method is a tuple of two tensors, each of size
+2\mu
+and shape
+[\mu,2]
+.
+[[x_1(K), z_1(K)]
+,
+[x_1(K+1), z_1(K+1)]
+,
+[x_1(K+2, z_1(K+2)]
+,
+[x_1(K+3), z_1(K+3)]]
+and
+[[x_2(K), z_2(K)]
+,
+[x_2(K+1), z_2(K+1)]
+,
+[x_2(K+2), z_2(K+2)]
+,
+[x_2(K+3), z_2(K+3)]]
+Input
+term_bits (tf.float32) – Channel output of the Turbo codeword, corresponding to the termination part
+Output
+tf.float32 – Two tensors of channel outputs, corresponding to encoders 1 and 2, respectively
+termbits_conv2turbo(term_bits1, term_bits2)[source]
+This method merges term_bits1 and term_bits2, termination bit streams from the two convolutional encoders, to a bit stream corresponding to the Turbo codeword.
+Let term_bits1 and term_bits2 be:
+[x_1(K), z_1(K), x_1(K+1), z_1(K+1),..., x_1(K+\mu-1),z_1(K+\mu-1)]
+[x_2(K), z_2(K), x_2(K+1), z_2(K+1),..., x_2(K+\mu-1), z_2(K+\mu-1)]
+where
+x_i, z_i
+are the systematic and parity bit streams respectively for a rate-1/2 convolutional encoder i, for i = 1, 2.
+In the example output below, we assume
+\mu=4
+to demonstrate zero padding at the end. Zero padding is done such that the total length is divisible by num_bitstreams (defaults to 3) which is the number of Turbo bit streams.
+Assume num_bitstreams = 3. Then number of termination symbols for the TurboEncoder is
+\lceil \frac{2*conv\_n*\mu}{3} \rceil
+:
+[x_1(K), z_1(K), x_1(K+1)]
+[z_1(K+1), x_1(K+2, z_1(K+2)]
+[x_1(K+3), z_1(K+3), x_2(K)]
+[z_2(K), x_2(K+1), z_2(K+1)]
+[x_2(K+2), z_2(K+2), x_2(K+3)]
+[z_2(K+3), 0, 0]
+Therefore, the output from this method is a single dimension vector where all Turbo symbols are concatenated together.
+[x_1(K), z_1(K), x_1(K+1), z_1(K+1), x_1(K+2, z_1(K+2), x_1(K+3),
+z_1(K+3), x_2(K),z_2(K), x_2(K+1), z_2(K+1), x_2(K+2), z_2(K+2),
+x_2(K+3), z_2(K+3), 0, 0]
+Input
+term_bits1 (tf.int32) – 2+D Tensor containing termination bits from convolutional encoder 1
+term_bits2 (tf.int32) – 2+D Tensor containing termination bits from convolutional encoder 2
+Output
+tf.int32 – 1+D tensor of termination bits. The output is obtained by concatenating the inputs and then adding right zero-padding if needed.
+sionna.fec.turbo.utils.polynomial_selector(constraint_length)[source]
+Returns the generator polynomials for rate-1/2 convolutional codes for a given constraint_length.
+Input
+constraint_length (int) – An integer defining the desired constraint length of the encoder. The memory of the encoder is constraint_length - 1.
+Output
+gen_poly (tuple) – Tuple of strings with each string being a 0,1 sequence where each polynomial is represented in binary form.
+Note
+Please note that the polynomials are optimized for rsc codes and are not necessarily the same as used in the polynomial selector polynomial_selector of the convolutional codes.
+sionna.fec.turbo.utils.puncture_pattern(turbo_coderate, conv_coderate)[source]
+This method returns puncturing pattern such that the Turbo code has rate turbo_coderate given the underlying convolutional encoder is of rate conv_coderate.
+Input
+turbo_coderate (float) – Desired coderate of the Turbo code
+conv_coderate (float) – Coderate of the underlying convolutional encoder
+Output
+tf.bool – 2D tensor indicating the positions to be punctured.
+References:
+Berrou(1,2,3,4)
+Berrou, A. Glavieux, P. Thitimajshima, “Near Shannon limit error-correcting coding and decoding: Turbo-codes”, IEEE ICC, 1993.
+3GPPTS36212_Turbo(1,2)
+ETSI 3GPP TS 36.212 “Evolved Universal Terrestrial Radio Access (EUTRA); Multiplexing and channel coding”, v.15.3.0, 2018-09.
+Previous
+Next
+© Copyright 2021-2023 NVIDIA CORPORATION.
+Built with Sphinx using a theme provided by Read the Docs.

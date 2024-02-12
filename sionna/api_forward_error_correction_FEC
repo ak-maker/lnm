@@ -1,0 +1,133 @@
+Sionna
+Quickstart
+Discover Sionna
+Tutorials
+“Made with Sionna”
+Primer on Electromagnetics
+API Documentation
+Forward Error Correction (FEC)
+Linear Codes
+Low-Density Parity-Check (LDPC)
+Polar Codes
+Convolutional Codes
+Turbo Codes
+Cyclic Redundancy Check (CRC)
+Interleaving
+Scrambling
+Utility Functions
+Mapping
+Channel
+Orthogonal Frequency-Division Multiplexing (OFDM)
+Multiple-Input Multiple-Output (MIMO)
+5G NR
+Ray Tracing
+Signal
+Utility Functions
+Configuration
+Discussions
+Report an Issue
+» API Documentation » Forward Error Correction (FEC)
+Forward Error Correction (FEC)
+The forward error correction (FEC) package provides encoding and decoding algorithms for several coding schemes such as low-density parity-check (LDPC), Polar, Turbo, and convolutional codes as well as cyclic redundancy checks (CRC).
+Although LDPC and Polar codes are 5G compliant, the decoding algorithms are mostly general and can be used in combination with other code designs.
+Besides the encoding/decoding algorithms, this package also provides interleavers, scramblers, and rate-matching for seamless integration of the FEC package into the remaining physical layer processing chain.
+The following figure shows the evolution of FEC codes from GSM (2G) up to the 5G NR wireless communication standard. The different codes are simulated with the Sionna FEC package for two different codeword length of
+n=1024
+(coderate
+r=1/2
+and
+n=6156
+(coderate
+r=1/3
+, respectively.
+Remark: The performance of different coding scheme varies significantly with the choice of the exact code and decoding parameters which can be found in the notebook From GSM to 5G - The Evolution of Forward Error Correction. Further, the situation also changes for short length codes and results can be found in 5G Channel Coding: Polar vs. LDPC Codes.
+Please note that the best choice of a coding scheme for a specific application depends on many other criteria than just its error rate performance:
+Decoding complexity, latency, and scalability
+Level of parallelism of the decoding algorithm and memory access patterns
+Error-floor behavior
+Rate adaptivity and flexibility
+All this–and much more–can be explored within the Sionna FEC module.
+Table of Contents
+    Linear Codes
+        Encoder
+            LinearEncoder
+            AllZeroEncoder
+        Decoder
+            OSDecoder
+    Low-Density Parity-Check (LDPC)
+        LDPC Encoder
+            LDPC5GEncoder
+        LDPC Decoder
+            LDPCBPDecoder
+            LDPC5GDecoder
+    Polar Codes
+        Polar Encoding
+            Polar5GEncoder
+            PolarEncoder
+        Polar Decoding
+            Polar5GDecoder
+            PolarSCDecoder
+            PolarSCLDecoder
+            PolarBPDecoder
+        Polar Utility Functions
+            generate_5g_ranking
+            generate_polar_transform_mat
+            generate_rm_code
+            generate_dense_polar
+    Convolutional Codes
+        Convolutional Encoding
+        Viterbi Decoding
+        BCJR Decoding
+        Convolutional Code Utility Functions
+            Trellis
+            polynomial_selector
+    Turbo Codes
+        Turbo Encoding
+        Turbo Decoding
+        Turbo Utility Functions
+            TurboTermination
+            polynomial_selector
+            puncture_pattern
+    Cyclic Redundancy Check (CRC)
+        CRCEncoder
+        CRCDecoder
+    Interleaving
+        Interleaver
+            RowColumnInterleaver
+            RandomInterleaver
+            Turbo3GPPInterleaver
+        Deinterleaver
+    Scrambling
+        Scrambler
+        TB5GScrambler
+        Descrambler
+    Utility Functions
+        (Binary) Linear Codes
+            load_parity_check_examples
+            alist2mat
+            load_alist
+            generate_reg_ldpc
+            make_systematic
+            gm2pcm
+            pcm2gm
+            verify_gm_pcm
+        EXIT Analysis
+            plot_exit_chart
+            get_exit_analytic
+            plot_trajectory
+        Miscellaneous
+            GaussianPriorSource
+            bin2int
+            int2bin
+            bin2int_tf
+            int2bin_tf
+            int_mod_2
+            llr2mi
+            j_fun
+            j_fun_inv
+            j_fun_tf
+            j_fun_inv_tf
+Previous
+Next
+© Copyright 2021-2023 NVIDIA CORPORATION.
+Built with Sphinx using a theme provided by Read the Docs.

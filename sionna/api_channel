@@ -1,0 +1,84 @@
+Sionna
+Quickstart
+Discover Sionna
+Tutorials
+“Made with Sionna”
+Primer on Electromagnetics
+API Documentation
+Forward Error Correction (FEC)
+Mapping
+Channel
+Wireless
+Optical
+Discrete
+Orthogonal Frequency-Division Multiplexing (OFDM)
+Multiple-Input Multiple-Output (MIMO)
+5G NR
+Ray Tracing
+Signal
+Utility Functions
+Configuration
+Discussions
+Report an Issue
+» API Documentation » Channel
+Channel
+This module provides layers and functions that implement channel models for wireless and optical communications.
+    Wireless
+        AWGN
+        Flat-fading channel
+            FlatFadingChannel
+            GenerateFlatFadingChannel
+            ApplyFlatFadingChannel
+            SpatialCorrelation
+            KroneckerModel
+            PerColumnModel
+        Channel model interface
+        Time domain channel
+            TimeChannel
+            GenerateTimeChannel
+            ApplyTimeChannel
+            cir_to_time_channel
+            time_to_ofdm_channel
+        Channel with OFDM waveform
+            OFDMChannel
+            GenerateOFDMChannel
+            ApplyOFDMChannel
+            cir_to_ofdm_channel
+        Rayleigh block fading
+        3GPP 38.901 channel models
+            PanelArray
+            Antenna
+            AntennaArray
+            Tapped delay line (TDL)
+            Clustered delay line (CDL)
+            Urban microcell (UMi)
+            Urban macrocell (UMa)
+            Rural macrocell (RMa)
+        External datasets
+        Utility functions
+            subcarrier_frequencies
+            time_lag_discrete_time_channel
+            deg_2_rad
+            rad_2_deg
+            wrap_angle_0_360
+            drop_uts_in_sector
+            relocate_uts
+            set_3gpp_scenario_parameters
+            gen_single_sector_topology
+            gen_single_sector_topology_interferers
+            exp_corr_mat
+            one_ring_corr_mat
+    Optical
+        Split-step Fourier method
+        Erbium-doped fiber amplifier
+        Utility functions
+            time_frequency_vector
+    Discrete
+        BinaryMemorylessChannel
+        BinarySymmetricChannel
+        BinaryErasureChannel
+        BinaryZChannel
+Previous
+Next
+© Copyright 2021-2023 NVIDIA CORPORATION.
+Built with Sphinx using a theme provided by Read the Docs.

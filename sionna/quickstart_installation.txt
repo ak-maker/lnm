@@ -1,0 +1,60 @@
+Sionna
+Quickstart
+Installation
+Installation using pip
+Docker-based Installation
+Installation from source
+“Hello, world!”
+Discover Sionna
+Tutorials
+“Made with Sionna”
+Primer on Electromagnetics
+API Documentation
+Discussions
+Report an Issue
+» Quickstart » Installation
+Installation
+Sionna requires Python and Tensorflow. In order to run the tutorial notebooks on your machine, you also need JupyterLab. You can alternatively test them on Google Colab. Although not necessary, we recommend running Sionna in a Docker container.
+Note
+Sionna requires TensorFlow 2.10-2.15 and Python 3.8-3.11. We recommend Ubuntu 22.04. Earlier versions of TensorFlow may still work but are not recommended because of known, unpatched CVEs.
+To run the ray tracer on CPU, LLVM is required by DrJit. Please check the installation instructions for the LLVM backend. The ray tracing preview requires a recent version of JupyterLab. You can upgrade to the latest version via pip install --upgrade ipykernel jupyterlab (requires restart of JupyterLab).
+We refer to the TensorFlow GPU support tutorial for GPU support and the required driver setup.
+Installation using pip
+We recommend to do this within a virtual environment, e.g., using conda. On macOS, you need to install tensorflow-macos first.
+1.) Install the package
+pip install sionna
+2.) Test the installation in Python
+python
+>>> import sionna
+>>> print(sionna.__version__)
+0.16.2
+3.) Once Sionna is installed, you can run the Sionna “Hello, World!” example, have a look at the quick start guide, or at the tutorials.
+For a local installation, the JupyterLab Desktop application can be used. This directly includes the Python installation and configuration.
+Docker-based Installation
+1.) Make sure that you have Docker installed on your system. On Ubuntu 22.04, you can run for example
+sudo apt install docker.io
+Ensure that your user belongs to the docker group (see Docker post-installation).
+sudo usermod -aG docker $USER
+Log out and re-login to load updated group memberships.
+For GPU support on Linux, you need to install the NVIDIA Container Toolkit.
+2.) Build the Sionna Docker image. From within the Sionna directory, run:
+make docker
+3.) Run the Docker image with GPU support
+make run-docker gpus=all
+or without GPU:
+make run-docker
+This will immediately launch a Docker image with Sionna installed, running JupyterLab on port 8888.
+4.) Browse through the example notebook by connecting to http://127.0.0.1:8888 in your browser.
+Installation from source
+We recommend to do this within a virtual environment, e.g., using conda.
+1.) Clone this repository and execute from within its root folder:
+make install
+2.) Test the installation in Python
+python
+>>> import sionna
+>>> print(sionna.__version__)
+0.16.2
+Previous
+Next
+© Copyright 2021-2023 NVIDIA CORPORATION.
+Built with Sphinx using a theme provided by Read the Docs.

@@ -1,0 +1,220 @@
+Sionna
+Quickstart
+Discover Sionna
+Tutorials
+“Made with Sionna”
+Primer on Electromagnetics
+API Documentation
+Forward Error Correction (FEC)
+Linear Codes
+Low-Density Parity-Check (LDPC)
+Polar Codes
+Convolutional Codes
+Convolutional Encoding
+Viterbi Decoding
+BCJR Decoding
+Convolutional Code Utility Functions
+Turbo Codes
+Cyclic Redundancy Check (CRC)
+Interleaving
+Scrambling
+Utility Functions
+Mapping
+Channel
+Orthogonal Frequency-Division Multiplexing (OFDM)
+Multiple-Input Multiple-Output (MIMO)
+5G NR
+Ray Tracing
+Signal
+Utility Functions
+Configuration
+Discussions
+Report an Issue
+» API Documentation » Forward Error Correction (FEC) » Convolutional Codes
+Convolutional Codes
+This module supports encoding of convolutional codes and provides layers for Viterbi [Viterbi] and BCJR [BCJR] decoding.
+While the ViterbiDecoder decoding algorithm produces maximum likelihood sequence estimates, the BCJRDecoder produces the maximum a posterior (MAP) bit-estimates.
+The following code snippet shows how to set up a rate-1/2, constraint-length-3 ConvEncoder in two alternate ways and a corresponding ViterbiDecoder or BCJRDecoder. You can find further examples in the Channel Coding Tutorial Notebook.
+Setting-up:
+encoder = ConvEncoder(rate=1/2, # rate of the desired code
+                      constraint_length=3) # constraint length of the code
+# or
+encoder = ConvEncoder(gen_poly=['101', '111']) # or polynomial can be used as input directly
+
+# --- Viterbi decoding ---
+decoder = ViterbiDecoder(gen_poly=encoder.gen_poly) # polynomial used in encoder
+# or just reference to the encoder
+decoder = ViterbiDecoder(encoder=encoder) # the code parameters are infered from the encoder
+
+# --- or BCJR decoding ---
+decoder = BCJRDecoder(gen_poly=encoder.gen_poly, algorithm="map") # polynomial used in encoder
+
+# or just reference to the encoder
+decoder = BCJRDecoder(encoder=encoder, algorithm="map") # the code parameters are infered from the encoder
+Running the encoder / decoder:
+# --- encoder ---
+# u contains the information bits to be encoded and has shape [...,k].
+# c contains the convolutional encoded codewords and has shape [...,n].
+c = encoder(u)
+
+# --- decoder ---
+# y contains the de-mapped received codeword from channel and has shape [...,n].
+# u_hat contains the estimated information bits and has shape [...,k].
+u_hat = decoder(y)
+Convolutional Encoding
+class
+sionna.fec.conv.ConvEncoder(gen_poly=None, rate=1 / 2, constraint_length=3, rsc=False, terminate=False, output_dtype=tf.float32, **kwargs)[source]
+Encodes an information binary tensor to a convolutional codeword. Currently, only generator polynomials for codes of rate=1/n for n=2,3,4,… are allowed.
+The class inherits from the Keras layer class and can be used as layer in a Keras model.
+Parameters
+gen_poly (tuple) – Sequence of strings with each string being a 0,1 sequence. If None, rate and constraint_length must be provided.
+rate (float) – Valid values are 1/3 and 0.5. Only required if gen_poly is None.
+constraint_length (int) – Valid values are between 3 and 8 inclusive. Only required if gen_poly is None.
+rsc (boolean) – Boolean flag indicating whether the Trellis generated is recursive systematic or not. If True, the encoder is recursive-systematic. In this case first polynomial in gen_poly is used as the feedback polynomial. Defaults to False.
+terminate (boolean) – Encoder is terminated to all zero state if True. If terminated, the true rate of the code is slightly lower than rate.
+output_dtype (tf.DType) – Defaults to tf.float32. Defines the output datatype of the layer.
+Input
+inputs ([…,k], tf.float32) – 2+D tensor containing the information bits where k is the information length
+Output
+[…,k/rate], tf.float32 – 2+D tensor containing the encoded codeword for the given input information tensor where rate is
+\frac{1}{\textrm{len}\left(\textrm{gen_poly}\right)}
+(if gen_poly is provided).
+Note
+The generator polynomials from [Moon] are available for various rate and constraint lengths. To select them, use the rate and constraint_length arguments.
+In addition, polynomials for any non-recursive convolutional encoder can be given as input via gen_poly argument. Currently, only polynomials with rate=1/n are supported. When the gen_poly argument is given, the rate and constraint_length arguments are ignored.
+Various notations are used in the literature to represent the generator polynomials for convolutional codes. In [Moon], the octal digits format is primarily used. In the octal format, the generator polynomial 10011 corresponds to 46. Another widely used format is decimal notation with MSB. In this notation, polynomial 10011 corresponds to 19. For simplicity, the ConvEncoder only accepts the bit format i.e. 10011 as gen_poly argument.
+Also note that constraint_length and memory are two different terms often used to denote the strength of a convolutional code. In this sub-package, we use constraint_length. For example, the polynomial 10011 has a constraint_length of 5, however its memory is only 4.
+When terminate is True, the true rate of the convolutional code is slightly lower than rate. It equals
+\frac{r*k}{k+\mu}
+where r denotes rate and
+\mu
+is constraint_length - 1. For example when terminate is True, k=100,
+\mu=4
+and rate =0.5, true rate equals
+\frac{0.5*100}{104}=0.481
+.
+property
+coderate
+Rate of the code used in the encoder
+property
+gen_poly
+Generator polynomial used by the encoder
+property
+k
+Number of information bits per codeword
+property
+n
+Number of codeword bits
+property
+terminate
+Indicates if the convolutional encoder is terminated
+property
+trellis
+Trellis object used during encoding
+Viterbi Decoding
+class
+sionna.fec.conv.ViterbiDecoder(encoder=None, gen_poly=None, rate=1 / 2, constraint_length=3, rsc=False, terminate=False, method='soft_llr', output_dtype=tf.float32, **kwargs)[source]
+Implements the Viterbi decoding algorithm [Viterbi] that returns an estimate of the information bits for a noisy convolutional codeword. Takes as input either LLR values (method = soft_llr) or hard bit values (method = hard) and returns a hard decided estimation of the information bits.
+The class inherits from the Keras layer class and can be used as layer in a Keras model.
+Parameters
+encoder (ConvEncoder) – If encoder is provided as input, the following input parameters are not required and will be ignored: gen_poly, rate, constraint_length, rsc, terminate. They will be inferred from the encoder object itself. If encoder is None, the above parameters must be provided explicitly.
+gen_poly (tuple) – tuple of strings with each string being a 0, 1 sequence. If None, rate and constraint_length must be provided.
+rate (float) – Valid values are 1/3 and 0.5. Only required if gen_poly is None.
+constraint_length (int) – Valid values are between 3 and 8 inclusive. Only required if gen_poly is None.
+rsc (boolean) – Boolean flag indicating whether the encoder is recursive-systematic for given generator polynomials. True indicates encoder is recursive-systematic. False indicates encoder is feed-forward non-systematic.
+terminate (boolean) – Boolean flag indicating whether the codeword is terminated. True indicates codeword is terminated to all-zero state. False indicates codeword is not terminated.
+method (str) – Valid values are soft_llr or hard. In computing path metrics, soft_llr expects channel LLRs as input hard assumes a binary symmetric channel (BSC) with 0/1 values are inputs. In case of hard, inputs will be quantized to 0/1 values.
+output_dtype (tf.DType) – Defaults to tf.float32. Defines the output datatype of the layer.
+Input
+inputs ([…,n], tf.float32) – 2+D tensor containing the (noisy) channel output symbols where n denotes the codeword length
+Output
+[…,rate*n], tf.float32 – 2+D tensor containing the estimates of the information bit tensor
+Note
+A full implementation of the decoder rather than a windowed approach is used. For a given codeword of duration T, the path metric is computed from time 0 to T and the path with optimal metric at time T is selected. The optimal path is then traced back from T to 0 to output the estimate of the information bit vector used to encode. For larger codewords, note that the current method is sub-optimal in terms of memory utilization and latency.
+property
+coderate
+Rate of the code used in the encoder
+property
+gen_poly
+Generator polynomial used by the encoder
+property
+k
+Number of information bits per codeword
+property
+n
+Number of codeword bits
+property
+terminate
+Indicates if the encoder is terminated during codeword generation
+property
+trellis
+Trellis object used during encoding
+BCJR Decoding
+class
+sionna.fec.conv.BCJRDecoder(encoder=None, gen_poly=None, rate=1 / 2, constraint_length=3, rsc=False, terminate=False, hard_out=True, algorithm='map', output_dtype=tf.float32, **kwargs)[source]
+Implements the BCJR decoding algorithm [BCJR] that returns an estimate of the information bits for a noisy convolutional codeword. Takes as input either channel LLRs or a tuple (channel LLRs, apriori LLRs). Returns an estimate of the information bits, either output LLRs ( hard_out = False) or hard decoded bits ( hard_out = True), respectively.
+The class inherits from the Keras layer class and can be used as layer in a Keras model.
+Parameters
+encoder (ConvEncoder) – If encoder is provided as input, the following input parameters are not required and will be ignored: gen_poly, rate, constraint_length, rsc, terminate. They will be inferred from the encoder object itself. If encoder is None, the above parameters must be provided explicitly.
+gen_poly (tuple) – tuple of strings with each string being a 0, 1 sequence. If None, rate and constraint_length must be provided.
+rate (float) – Valid values are 1/3 and 1/2. Only required if gen_poly is None.
+constraint_length (int) – Valid values are between 3 and 8 inclusive. Only required if gen_poly is None.
+rsc (boolean) – Boolean flag indicating whether the encoder is recursive-systematic for given generator polynomials. True indicates encoder is recursive-systematic. False indicates encoder is feed-forward non-systematic.
+terminate (boolean) – Boolean flag indicating whether the codeword is terminated. True indicates codeword is terminated to all-zero state. False indicates codeword is not terminated.
+hard_out (boolean) – Boolean flag indicating whether to output hard or soft decisions on the decoded information vector. True implies a hard-decoded information vector of 0/1’s as output. False implies output is decoded LLR’s of the information.
+algorithm (str) – Defaults to map. Indicates the implemented BCJR algorithm, where map denotes the exact MAP algorithm, log indicates the exact MAP implementation, but in log-domain, and maxlog indicates the approximated MAP implementation in log-domain, where
+\log(e^{a}+e^{b}) \sim \max(a,b)
+.
+output_dtype (tf.DType) – Defaults to tf.float32. Defines the output datatype of the layer.
+Input
+llr_ch or (llr_ch, llr_a) – Tensor or Tuple:
+llr_ch ([…,n], tf.float32) – 2+D tensor containing the (noisy) channel LLRs, where n denotes the codeword length
+llr_a ([…,k], tf.float32) – 2+D tensor containing the a priori information of each information bit. Implicitly assumed to be 0 if only llr_ch is provided.
+Output
+tf.float32 – 2+D tensor of shape […,coderate*n] containing the estimates of the information bit tensor
+property
+coderate
+Rate of the code used in the encoder
+property
+gen_poly
+Generator polynomial used by the encoder
+property
+k
+Number of information bits per codeword
+property
+n
+Number of codeword bits
+property
+terminate
+Indicates if the encoder is terminated during codeword generation
+property
+trellis
+Trellis object used during encoding
+Convolutional Code Utility Functions
+sionna.fec.conv.utils.Trellis(gen_poly, rsc=True)[source]
+Trellis structure for a given generator polynomial. Defines state transitions and output symbols (and bits) for each current state and input.
+Parameters
+gen_poly (tuple) – Sequence of strings with each string being a 0,1 sequence. If None, rate and constraint_length must be provided. If rsc is True, then first polynomial will act as denominator for the remaining generator polynomials. For e.g., rsc = True and gen_poly = (111, 101, 011) implies generator matrix equals
+G(D)=[\frac{1+D^2}{1+D+D^2}, \frac{D+D^2}{1+D+D^2}]
+. Currently Trellis is only implemented for generator matrices of size
+\frac{1}{n}
+.
+rsc (boolean) – Boolean flag indicating whether the Trellis is recursive systematic or not. If True, the encoder is recursive systematic in which case first polynomial in gen_poly is used as the feedback polynomial. Default is True.
+sionna.fec.conv.utils.polynomial_selector(rate, constraint_length)[source]
+Returns generator polynomials for given code parameters. The polynomials are chosen from [Moon] which are tabulated by searching for polynomials with best free distances for a given rate and constraint length.
+Input
+rate (float) – Desired rate of the code. Currently, only r=1/3 and r=1/2 are supported.
+constraint_length (int) – Desired constraint length of the encoder
+Output
+tuple – Tuple of strings with each string being a 0,1 sequence where each polynomial is represented in binary form.
+References:
+Viterbi(1,2)
+A. Viterbi, “Error bounds for convolutional codes and an asymptotically optimum decoding algorithm”, IEEE Trans. Inf. Theory, 1967.
+BCJR(1,2)
+L. Bahl, J. Cocke, F. Jelinek, und J. Raviv, “Optimal Decoding of Linear Codes for Minimizing Symbol Error Rate”, IEEE Trans. Inf. Theory, March 1974.
+Moon(1,2,3)
+Todd. K. Moon, “Error Correction Coding: Mathematical Methods and Algorithms”, John Wiley & Sons, 2020.
+Previous
+Next
+© Copyright 2021-2023 NVIDIA CORPORATION.
+Built with Sphinx using a theme provided by Read the Docs.
