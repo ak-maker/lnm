@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 » Tutorials » MIMO OFDM Transmissions over the CDL Channel Model
 
 # MIMO OFDM Transmissions over the CDL Channel Model
@@ -455,5 +456,3 @@ plt.xlabel("Subcarrier index")
 plt.ylabel("Channel frequency response")
 plt.legend(["Ideal (real part)", "Ideal (imaginary part)", "Estimated (real part)", "Estimated (imaginary part)"]);
 plt.title("Comparison of channel frequency responses");
-
-
