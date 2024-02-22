@@ -1,0 +1,56 @@
+INSTRUCTION: Explain how to use the sionna.utils.BitErrorRate class and compute the bit error rate between two binary tensors.
+ANSWER:To compute the bit error rate (BER) between two binary tensors using the `sionna.utils.BitErrorRate` class from the Sionna library, follow these steps:
+
+1. Import TensorFlow and Sionna library components necessary for the operation:
+
+```python
+import tensorflow as tf
+from sionna.utils import BitErrorRate
+```
+
+2. Define or generate the two binary tensors, `b` and `b_hat`, that you want to compare. `b` could be the original transmitted bits, while `b_hat` would be the estimated or received bits after transmission over the channel and detection at the receiver.
+
+For example, if you have predefined tensors or placeholders:
+
+```python
+# Define your tensors or use placeholders with predefined data
+b = tf.constant([0, 1, 1, 0, 1], dtype=tf.float32)
+b_hat = tf.constant([0, 1, 0, 0, 1], dtype=tf.float32)
+```
+
+Or if you want to generate random tensors for testing purposes:
+
+```python
+# Generate tensors with random binary data for testing purposes
+b = tf.random.uniform(shape=(100,), minval=0, maxval=2, dtype=tf.float32)
+b_hat = tf.random.uniform(shape=(100,), minval=0, maxval=2, dtype=tf.float32)
+```
+
+Note that the tensors should be of the same shape and preferably of type `tf.float32`.
+
+3. Initialize the `BitErrorRate` class:
+
+```python
+# Initialize the BitErrorRate object
+ber_metric = BitErrorRate(name='bit_error_rate')
+```
+
+4. Use the `update_state` method of the `ber_metric` object to compare the two tensors:
+
+```python
+# Use the update state to feed in the tensors
+ber_metric.update_state(b, b_hat)
+```
+
+5. Obtain the computed bit error rate:
+
+```python
+# Compute the bit error rate
+ber_value = ber_metric.result().numpy()
+print("The bit error rate is:", ber_value)
+```
+
+The `ber_metric.result()` method returns a `tf.float32` scalar tensor which contains the average bit error rate. By calling `.numpy()` on this tensor, you can get a NumPy scalar value for easy interpretation and display.
+
+Remember that this procedure assumes that you are executing in eager execution mode, which is the default in TensorFlow 2.x. If you are using TensorFlow 1.x or Graph execution mode in TensorFlow 2.x, you would need to run this within a TensorFlow session using `with tf.Session() as sess:` and `sess.run()` to evaluate tensors.
+

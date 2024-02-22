@@ -1,0 +1,353 @@
+# Orthogonal Frequency-Division Multiplexing (OFDM)
+
+## Channel Estimation
+### class: sionna.ofdm.BaseChannelInterpolator
+### class: sionna.ofdm.LSChannelEstimator(resource_grid, interpolation_type='nn', interpolator=None, dtype=tf.complex64, **kwargs)
+### class: sionna.ofdm.LinearInterpolator(pilot_pattern, time_avg=False)
+### class: sionna.ofdm.LMMSEInterpolator(pilot_pattern, cov_mat_time, cov_mat_freq, cov_mat_space=None, order='t-f')
+### class: sionna.ofdm.NearestNeighborInterpolator(pilot_pattern)
+### sionna.ofdm.tdl_time_cov_mat(model, speed, carrier_frequency, ofdm_symbol_duration, num_ofdm_symbols, los_angle_of_arrival=0.7853981633974483, dtype=tf.complex64)
+### sionna.ofdm.tdl_freq_cov_mat(model, subcarrier_spacing, fft_size, delay_spread, dtype=tf.complex64)
+## Precoding
+
+# Orthogonal Frequency-Division Multiplexing (OFDM)
+
+This module provides layers and functions to support simulation of OFDM-based systems. The key component is the ResourceGrid that defines how data and pilot symbols are mapped onto a sequence of OFDM symbols with a given FFT size. The resource grid can also define guard and DC carriers which are nulled. In 4G/5G parlance, a ResourceGrid would be a slot. Once a ResourceGrid is defined, one can use the ResourceGridMapper to map a tensor of complex-valued data symbols onto the resource grid, prior to OFDM modulation using the OFDMModulator or further processing in the frequency domain.
+
+The PilotPattern allows for a fine-grained configuration of how transmitters send pilots for each of their streams or antennas. As the management of pilots in multi-cell MIMO setups can quickly become complicated, the module provides the KroneckerPilotPattern class that automatically generates orthogonal pilot transmissions for all transmitters and streams.
+
+Additionally, the module contains layers for channel estimation, precoding, equalization, and detection, such as the LSChannelEstimator, the ZFPrecoder, and the LMMSEEqualizer and LinearDetector. These are good starting points for the development of more advanced algorithms and provide robust baselines for benchmarking.
+
+### class: sionna.ofdm.BaseChannelInterpolator
+Abstract layer for implementing an OFDM channel interpolator.
+Any layer that implements an OFDM channel interpolator must implement this callable class.
+A channel interpolator is used by an OFDM channel estimator (BaseChannelEstimator) to compute channel estimates for the data-carrying resource elements from the channel estimates for the pilot-carrying resource elements.
+Input
+h_hat ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_pilot_symbols], tf.complex) – Channel estimates for the pilot-carrying resource elements
+err_var ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_pilot_symbols], tf.complex) – Channel estimation error variances for the pilot-carrying resource elements
+Output
+h_hat ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_ofdm_symbols, fft_size], tf.complex) – Channel estimates accross the entire resource grid for all transmitters and streams
+err_var (Same shape as h_hat, tf.float) – Channel estimation error variance accross the entire resource grid for all transmitters and streams
+### class: sionna.ofdm.LSChannelEstimator(resource_grid, interpolation_type='nn', interpolator=None, dtype=tf.complex64, **kwargs)
+Layer implementing least-squares (LS) channel estimation for OFDM MIMO systems.
+After LS channel estimation at the pilot positions, the channel estimates and error variances are interpolated accross the entire resource grid using a specified interpolation function.
+For simplicity, the underlying algorithm is described for a vectorized observation, where we have a nonzero pilot for all elements to be estimated. The actual implementation works on a full OFDM resource grid with sparse pilot patterns. The following model is assumed:
+\mathbf{y} = \mathbf{h}\odot\mathbf{p} + \mathbf{n}
+where
+\mathbf{y}\in\mathbb{C}^{M}
+is the received signal vector,
+\mathbf{p}\in\mathbb{C}^M
+is the vector of pilot symbols,
+\mathbf{h}\in\mathbb{C}^{M}
+is the channel vector to be estimated, and
+\mathbf{n}\in\mathbb{C}^M
+is a zero-mean noise vector whose elements have variance
+N_0
+. The operator
+\odot
+denotes element-wise multiplication.
+The channel estimate
+\hat{\mathbf{h}}
+and error variances
+\sigma^2_i
+,
+i=0,\dots,M-1
+, are computed as
+\begin{split}\hat{\mathbf{h}} &= \mathbf{y} \odot
+                   \frac{\mathbf{p}^\star}{\left|\mathbf{p}\right|^2}
+                 = \mathbf{h} + \tilde{\mathbf{h}}\\
+     \sigma^2_i &= \mathbb{E}\left[\tilde{h}_i \tilde{h}_i^\star \right]
+                 = \frac{N_0}{\left|p_i\right|^2}.\end{split}
+.
+The channel estimates and error variances are then interpolated accross the entire resource grid.
+Parameters
+resource_grid (ResourceGrid) – An instance of ResourceGrid.
+interpolation_type (One of ["nn", "lin", "lin_time_avg"], string) – The interpolation method to be used. It is ignored if interpolator is not None. Available options are NearestNeighborInterpolator (“nn”) or LinearInterpolator without (“lin”) or with averaging across OFDM symbols (“lin_time_avg”). Defaults to “nn”.
+interpolator (BaseChannelInterpolator) – An instance of BaseChannelInterpolator, such as LMMSEInterpolator, or None. In the latter case, the interpolator specfied by interpolation_type is used. Otherwise, the interpolator is used and interpolation_type is ignored. Defaults to None.
+dtype (tf.Dtype) – Datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+Input
+(y, no) – Tuple:
+y ([batch_size, num_rx, num_rx_ant, num_ofdm_symbols,fft_size], tf.complex) – Observed resource grid
+no ([batch_size, num_rx, num_rx_ant] or only the first n>=0 dims, tf.float) – Variance of the AWGN
+Output
+h_ls ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_ofdm_symbols,fft_size], tf.complex) – Channel estimates accross the entire resource grid for all transmitters and streams
+err_var (Same shape as h_ls, tf.float) – Channel estimation error variance accross the entire resource grid for all transmitters and streams
+### class: sionna.ofdm.LinearInterpolator(pilot_pattern, time_avg=False)
+Linear channel estimate interpolation on a resource grid.
+This class computes for each element of an OFDM resource grid a channel estimate based on num_pilots provided channel estimates and error variances through linear interpolation. It is assumed that the measurements were taken at the nonzero positions of a PilotPattern.
+The interpolation is done first across sub-carriers and then across OFDM symbols.
+Parameters
+pilot_pattern (PilotPattern) – An instance of PilotPattern
+time_avg (bool) – If enabled, measurements will be averaged across OFDM symbols (i.e., time). This is useful for channels that do not vary substantially over the duration of an OFDM frame. Defaults to False.
+Input
+h_hat ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_pilot_symbols], tf.complex) – Channel estimates for the pilot-carrying resource elements
+err_var ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_pilot_symbols], tf.complex) – Channel estimation error variances for the pilot-carrying resource elements
+Output
+h_hat ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_ofdm_symbols, fft_size], tf.complex) – Channel estimates accross the entire resource grid for all transmitters and streams
+err_var (Same shape as h_hat, tf.float) – Channel estimation error variances accross the entire resource grid for all transmitters and streams
+### class: sionna.ofdm.LMMSEInterpolator(pilot_pattern, cov_mat_time, cov_mat_freq, cov_mat_space=None, order='t-f')
+LMMSE interpolation on a resource grid with optional spatial smoothing.
+This class computes for each element of an OFDM resource grid a channel estimate and error variance through linear minimum mean square error (LMMSE) interpolation/smoothing. It is assumed that the measurements were taken at the nonzero positions of a PilotPattern.
+Depending on the value of order, the interpolation is carried out accross time (t), i.e., OFDM symbols, frequency (f), i.e., subcarriers, and optionally space (s), i.e., receive antennas, in any desired order.
+For simplicity, we describe the underlying algorithm assuming that interpolation across the sub-carriers is performed first, followed by interpolation across OFDM symbols, and finally by spatial smoothing across receive antennas. The algorithm is similar if interpolation and/or smoothing are performed in a different order. For clarity, antenna indices are omitted when describing frequency and time interpolation, as the same process is applied to all the antennas.
+The input h_hat is first reshaped to a resource grid
+\hat{\mathbf{H}} \in \mathbb{C}^{N \times M}
+, by scattering the channel estimates at pilot locations according to the pilot_pattern.
+N
+denotes the number of OFDM symbols and
+M
+the number of sub-carriers.
+The first pass consists in interpolating across the sub-carriers:
+\hat{\mathbf{h}}_n^{(1)} = \mathbf{A}_n \hat{\mathbf{h}}_n
+where
+1 \leq n \leq N
+is the OFDM symbol index and
+\hat{\mathbf{h}}_n
+is the
+n^{\text{th}}
+(transposed) row of
+\hat{\mathbf{H}}
+.
+\mathbf{A}_n
+is the
+M \times M
+matrix such that:
+\mathbf{A}_n = \bar{\mathbf{A}}_n \mathbf{\Pi}_n^\intercal
+where
+\bar{\mathbf{A}}_n = \underset{\mathbf{Z} \in \mathbb{C}^{M \times K_n}}{\text{argmin}} \left\lVert \mathbf{Z}\left( \mathbf{\Pi}_n^\intercal \mathbf{R^{(f)}} \mathbf{\Pi}_n + \mathbf{\Sigma}_n \right) - \mathbf{R^{(f)}} \mathbf{\Pi}_n \right\rVert_{\text{F}}^2
+and
+\mathbf{R^{(f)}}
+is the
+M \times M
+channel frequency covariance matrix,
+\mathbf{\Pi}_n
+the
+M \times K_n
+matrix that spreads
+K_n
+values to a vector of size
+M
+according to the pilot_pattern for the
+n^{\text{th}}
+OFDM symbol, and
+\mathbf{\Sigma}_n \in \mathbb{R}^{K_n \times K_n}
+is the channel estimation error covariance built from err_var and assumed to be diagonal. Computation of
+\bar{\mathbf{A}}_n
+is done using an algorithm based on complete orthogonal decomposition. This is done to avoid matrix inversion for badly conditioned covariance matrices.
+The channel estimation error variances after the first interpolation pass are computed as
+\mathbf{\Sigma}^{(1)}_n = \text{diag} \left( \mathbf{R^{(f)}} - \mathbf{A}_n \mathbf{\Xi}_n \mathbf{R^{(f)}} \right)
+where
+\mathbf{\Xi}_n
+is the diagonal matrix of size
+M \times M
+that zeros the columns corresponding to sub-carriers not carrying any pilots. Note that interpolation is not performed for OFDM symbols which do not carry pilots.
+Remark: The interpolation matrix differs across OFDM symbols as different OFDM symbols may carry pilots on different sub-carriers and/or have different estimation error variances.
+Scaling of the estimates is then performed to ensure that their variances match the ones expected by the next interpolation step, and the error variances are updated accordingly:
+\begin{split}\begin{align}
+    \left[\hat{\mathbf{h}}_n^{(2)}\right]_m &= s_{n,m} \left[\hat{\mathbf{h}}_n^{(1)}\right]_m\\
+    \left[\mathbf{\Sigma}^{(2)}_n\right]_{m,m}  &= s_{n,m}\left( s_{n,m}-1 \right) \left[\hat{\mathbf{\Sigma}}^{(1)}_n\right]_{m,m} + \left( 1 - s_{n,m} \right) \left[\mathbf{R^{(f)}}\right]_{m,m} + s_{n,m} \left[\mathbf{\Sigma}^{(1)}_n\right]_{m,m}
+\end{align}\end{split}
+where the scaling factor
+s_{n,m}
+is such that:
+\mathbb{E} \left\{ \left\lvert s_{n,m} \left[\hat{\mathbf{h}}_n^{(1)}\right]_m \right\rvert^2 \right\} = \left[\mathbf{R^{(f)}}\right]_{m,m} +  \mathbb{E} \left\{ \left\lvert s_{n,m} \left[\hat{\mathbf{h}}^{(1)}_n\right]_m - \left[\mathbf{h}_n\right]_m \right\rvert^2 \right\}
+which leads to:
+\begin{split}\begin{align}
+    s_{n,m} &= \frac{2 \left[\mathbf{R^{(f)}}\right]_{m,m}}{\left[\mathbf{R^{(f)}}\right]_{m,m} - \left[\mathbf{\Sigma}^{(1)}_n\right]_{m,m} + \left[\hat{\mathbf{\Sigma}}^{(1)}_n\right]_{m,m}}\\
+    \hat{\mathbf{\Sigma}}^{(1)}_n &= \mathbf{A}_n \mathbf{R^{(f)}} \mathbf{A}_n^{\mathrm{H}}.
+\end{align}\end{split}
+.
+The second pass consists in interpolating across the OFDM symbols:
+\hat{\mathbf{h}}_m^{(3)} = \mathbf{B}_m \tilde{\mathbf{h}}^{(2)}_m
+where
+1 \leq m \leq M
+is the sub-carrier index and
+\tilde{\mathbf{h}}^{(2)}_m
+is the
+m^{\text{th}}
+column of
+\begin{split}\hat{\mathbf{H}}^{(2)} = \begin{bmatrix}
+                            {\hat{\mathbf{h}}_1^{(2)}}^\intercal\\
+                            \vdots\\
+                            {\hat{\mathbf{h}}_N^{(2)}}^\intercal
+                         \end{bmatrix}\end{split}
+and
+\mathbf{B}_m
+is the
+N \times N
+interpolation LMMSE matrix:
+\mathbf{B}_m = \bar{\mathbf{B}}_m \tilde{\mathbf{\Pi}}_m^\intercal
+where
+\bar{\mathbf{B}}_m = \underset{\mathbf{Z} \in \mathbb{C}^{N \times L_m}}{\text{argmin}} \left\lVert \mathbf{Z} \left( \tilde{\mathbf{\Pi}}_m^\intercal \mathbf{R^{(t)}}\tilde{\mathbf{\Pi}}_m + \tilde{\mathbf{\Sigma}}^{(2)}_m \right) -  \mathbf{R^{(t)}}\tilde{\mathbf{\Pi}}_m \right\rVert_{\text{F}}^2
+where
+\mathbf{R^{(t)}}
+is the
+N \times N
+channel time covariance matrix,
+\tilde{\mathbf{\Pi}}_m
+the
+N \times L_m
+matrix that spreads
+L_m
+values to a vector of size
+N
+according to the pilot_pattern for the
+m^{\text{th}}
+sub-carrier, and
+\tilde{\mathbf{\Sigma}}^{(2)}_m \in \mathbb{R}^{L_m \times L_m}
+is the diagonal matrix of channel estimation error variances built by gathering the error variances from (
+\mathbf{\Sigma}^{(2)}_1,\dots,\mathbf{\Sigma}^{(2)}_N
+) corresponding to resource elements carried by the
+m^{\text{th}}
+sub-carrier. Computation of
+\bar{\mathbf{B}}_m
+is done using an algorithm based on complete orthogonal decomposition. This is done to avoid matrix inversion for badly conditioned covariance matrices.
+The resulting channel estimate for the resource grid is
+\hat{\mathbf{H}}^{(3)} = \left[ \hat{\mathbf{h}}_1^{(3)} \dots \hat{\mathbf{h}}_M^{(3)} \right]
+The resulting channel estimation error variances are the diagonal coefficients of the matrices
+\mathbf{\Sigma}^{(3)}_m = \mathbf{R^{(t)}} - \mathbf{B}_m \tilde{\mathbf{\Xi}}_m \mathbf{R^{(t)}}, 1 \leq m \leq M
+where
+\tilde{\mathbf{\Xi}}_m
+is the diagonal matrix of size
+N \times N
+that zeros the columns corresponding to OFDM symbols not carrying any pilots.
+Remark: The interpolation matrix differs across sub-carriers as different sub-carriers may have different estimation error variances computed by the first pass. However, all sub-carriers carry at least one channel estimate as a result of the first pass, ensuring that a channel estimate is computed for all the resource elements after the second pass.
+Remark: LMMSE interpolation requires knowledge of the time and frequency covariance matrices of the channel. The notebook OFDM MIMO Channel Estimation and Detection shows how to estimate such matrices for arbitrary channel models. Moreover, the functions tdl_time_cov_mat() and tdl_freq_cov_mat() compute the expected time and frequency covariance matrices, respectively, for the TDL channel models.
+Scaling of the estimates is then performed to ensure that their variances match the ones expected by the next smoothing step, and the error variances are updated accordingly:
+\begin{split}\begin{align}
+    \left[\hat{\mathbf{h}}_m^{(4)}\right]_n &= \gamma_{m,n} \left[\hat{\mathbf{h}}_m^{(3)}\right]_n\\
+    \left[\mathbf{\Sigma}^{(4)}_m\right]_{n,n}  &= \gamma_{m,n}\left( \gamma_{m,n}-1 \right) \left[\hat{\mathbf{\Sigma}}^{(3)}_m\right]_{n,n} + \left( 1 - \gamma_{m,n} \right) \left[\mathbf{R^{(t)}}\right]_{n,n} + \gamma_{m,n} \left[\mathbf{\Sigma}^{(3)}_n\right]_{m,m}
+\end{align}\end{split}
+where:
+\begin{split}\begin{align}
+    \gamma_{m,n} &= \frac{2 \left[\mathbf{R^{(t)}}\right]_{n,n}}{\left[\mathbf{R^{(t)}}\right]_{n,n} - \left[\mathbf{\Sigma}^{(3)}_m\right]_{n,n} + \left[\hat{\mathbf{\Sigma}}^{(3)}_n\right]_{m,m}}\\
+    \hat{\mathbf{\Sigma}}^{(3)}_m &= \mathbf{B}_m \mathbf{R^{(t)}} \mathbf{B}_m^{\mathrm{H}}
+\end{align}\end{split}
+Finally, a spatial smoothing step is applied to every resource element carrying a channel estimate. For clarity, we drop the resource element indexing
+(n,m)
+. We denote by
+L
+the number of receive antennas, and by
+\mathbf{R^{(s)}}\in\mathbb{C}^{L \times L}
+the spatial covariance matrix.
+LMMSE spatial smoothing consists in the following computations:
+\hat{\mathbf{h}}^{(5)} = \mathbf{C} \hat{\mathbf{h}}^{(4)}
+where
+\mathbf{C} = \mathbf{R^{(s)}} \left( \mathbf{R^{(s)}} + \mathbf{\Sigma}^{(4)} \right)^{-1}.
+.
+The estimation error variances are the digonal coefficients of
+\mathbf{\Sigma}^{(5)} = \mathbf{R^{(s)}} - \mathbf{C}\mathbf{R^{(s)}}
+The smoothed channel estimate
+\hat{\mathbf{h}}^{(5)}
+and corresponding error variances
+\text{diag}\left( \mathbf{\Sigma}^{(5)} \right)
+are returned for every resource element
+(m,n)
+.
+Remark: No scaling is performed after the last interpolation or smoothing step.
+Remark: All passes assume that the estimation error covariance matrix (
+\mathbf{\Sigma}
+,
+\tilde{\mathbf{\Sigma}}^{(2)}
+, or
+\tilde{\mathbf{\Sigma}}^{(4)}
+) is diagonal, which may not be accurate. When this assumption does not hold, this interpolator is only an approximation of LMMSE interpolation.
+Remark: The order in which frequency interpolation, temporal interpolation, and, optionally, spatial smoothing are applied, is controlled using the order parameter.
+Note
+This layer does not support graph mode with XLA.
+Parameters
+pilot_pattern (PilotPattern) – An instance of PilotPattern
+cov_mat_time ([num_ofdm_symbols, num_ofdm_symbols], tf.complex) – Time covariance matrix of the channel
+cov_mat_freq ([fft_size, fft_size], tf.complex) – Frequency covariance matrix of the channel
+cov_time_space ([num_rx_ant, num_rx_ant], tf.complex) – Spatial covariance matrix of the channel. Defaults to None. Only required if spatial smoothing is requested (see order).
+order (str) – Order in which to perform interpolation and optional smoothing. For example, "t-f-s" means that interpolation across the OFDM symbols is performed first ("t": time), followed by interpolation across the sub-carriers ("f": frequency), and finally smoothing across the receive antennas ("s": space). Similarly, "f-t" means interpolation across the sub-carriers followed by interpolation across the OFDM symbols and no spatial smoothing. The spatial covariance matrix (cov_time_space) is only required when spatial smoothing is requested. Time and frequency interpolation are not optional to ensure that a channel estimate is computed for all resource elements.
+Input
+h_hat ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_pilot_symbols], tf.complex) – Channel estimates for the pilot-carrying resource elements
+err_var ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_pilot_symbols], tf.complex) – Channel estimation error variances for the pilot-carrying resource elements
+Output
+h_hat ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_ofdm_symbols, fft_size], tf.complex) – Channel estimates accross the entire resource grid for all transmitters and streams
+err_var (Same shape as h_hat, tf.float) – Channel estimation error variances accross the entire resource grid for all transmitters and streams
+### class: sionna.ofdm.NearestNeighborInterpolator(pilot_pattern)
+Nearest-neighbor channel estimate interpolation on a resource grid.
+This class assigns to each element of an OFDM resource grid one of num_pilots provided channel estimates and error variances according to the nearest neighbor method. It is assumed that the measurements were taken at the nonzero positions of a PilotPattern.
+The figure below shows how four channel estimates are interpolated accross a resource grid. Grey fields indicate measurement positions while the colored regions show which resource elements are assigned to the same measurement value.
+Parameters
+pilot_pattern (PilotPattern) – An instance of PilotPattern
+Input
+h_hat ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_pilot_symbols], tf.complex) – Channel estimates for the pilot-carrying resource elements
+err_var ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_pilot_symbols], tf.complex) – Channel estimation error variances for the pilot-carrying resource elements
+Output
+h_hat ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_ofdm_symbols, fft_size], tf.complex) – Channel estimates accross the entire resource grid for all transmitters and streams
+err_var (Same shape as h_hat, tf.float) – Channel estimation error variances accross the entire resource grid for all transmitters and streams
+### sionna.ofdm.tdl_time_cov_mat(model, speed, carrier_frequency, ofdm_symbol_duration, num_ofdm_symbols, los_angle_of_arrival=0.7853981633974483, dtype=tf.complex64)
+Computes the time covariance matrix of a TDL channel model.
+For non-line-of-sight (NLoS) model, the channel time covariance matrix
+\mathbf{R^{(t)}}
+of a TDL channel model is
+\mathbf{R^{(t)}}_{u,v} = J_0 \left( \nu \Delta_t \left( u-v \right) \right)
+where
+J_0
+is the zero-order Bessel function of the first kind,
+\Delta_t
+the duration of an OFDM symbol, and
+ν
+the Doppler spread defined by
+\nu = 2 \pi \frac{v}{c} f_c
+where
+v
+is the movement speed,
+c
+the speed of light, and
+f_c
+the carrier frequency.
+For line-of-sight (LoS) channel models, the channel time covariance matrix is
+\mathbf{R^{(t)}}_{u,v} = P_{\text{NLoS}} J_0 \left( \nu \Delta_t \left( u-v \right) \right) + P_{\text{LoS}}e^{j \nu \Delta_t \left( u-v \right) \cos{\alpha_{\text{LoS}}}}
+where
+\alpha_{\text{LoS}}
+is the angle-of-arrival for the LoS path,
+P_{\text{LoS}}
+the total power of NLoS paths, and
+P_{\text{LoS}}
+the power of the LoS path. The power delay profile is assumed to have unit power, i.e.,
+P_{\text{NLoS}} + P_{\text{LoS}} = 1
+.
+Input
+model (str) – TDL model for which to return the covariance matrix. Should be one of “A”, “B”, “C”, “D”, or “E”.
+speed (float) – Speed [m/s]
+carrier_frequency (float) – Carrier frequency [Hz]
+ofdm_symbol_duration (float) – Duration of an OFDM symbol [s]
+num_ofdm_symbols (int) – Number of OFDM symbols
+los_angle_of_arrival (float) – Angle-of-arrival for LoS path [radian]. Only used with LoS models. Defaults to
+\pi/4
+.
+dtype (tf.DType) – Datatype to use for the output. Should be one of tf.complex64 or tf.complex128. Defaults to tf.complex64.
+Output
+cov_mat ([num_ofdm_symbols, num_ofdm_symbols], tf.complex) – Channel time covariance matrix
+### sionna.ofdm.tdl_freq_cov_mat(model, subcarrier_spacing, fft_size, delay_spread, dtype=tf.complex64)
+Computes the frequency covariance matrix of a TDL channel model.
+The channel frequency covariance matrix
+\mathbf{R}^{(f)}
+of a TDL channel model is
+\mathbf{R}^{(f)}_{u,v} = \sum_{\ell=1}^L P_\ell e^{-j 2 \pi \tau_\ell \Delta_f (u-v)}, 1 \leq u,v \leq M
+where
+M
+is the FFT size,
+L
+is the number of paths for the selected TDL model,
+P_\ell
+and
+\tau_\ell
+are the average power and delay for the
+\ell^{\text{th}}
+path, respectively, and
+\Delta_f
+is the sub-carrier spacing.
+Input
+model (str) – TDL model for which to return the covariance matrix. Should be one of “A”, “B”, “C”, “D”, or “E”.
+subcarrier_spacing (float) – Sub-carrier spacing [Hz]
+fft_size (float) – FFT size
+delay_spread (float) – Delay spread [s]
+dtype (tf.DType) – Datatype to use for the output. Should be one of tf.complex64 or tf.complex128. Defaults to tf.complex64.
+Output
+cov_mat ([fft_size, fft_size], tf.complex) – Channel frequency covariance matrix
+## Precoding

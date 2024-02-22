@@ -1,0 +1,354 @@
+# Ray Tracing
+
+## Radio Materials
+### class: sionna.rt.RadioMaterial(name, relative_permittivity=1.0, conductivity=0.0, scattering_coefficient=0.0, xpd_coefficient=0.0, scattering_pattern=None, frequency_update_callback=None, dtype=tf.complex64)
+### class: sionna.rt.LambertianPattern(dtype=tf.complex64)
+## Radio Devices
+
+# Ray Tracing
+
+This module provides a differentiable ray tracer for radio propagation modeling. The best way to get started is by having a look at the Sionna Ray Tracing Tutorial. The Primer on Electromagnetics provides useful background knowledge and various definitions that are used throughout the API documentation.
+
+The most important component of the ray tracer is the Scene. It has methods for the computation of propagation Paths (compute_paths()) and CoverageMap (coverage_map()). Sionna has several integrated Example Scenes that you can use for your own experiments. In this video, we explain how you can create your own scenes using OpenStreetMap and Blender. You can preview a scene within a Jupyter notebook (preview()) or render it to a file from the viewpoint of a camera (render() or render_to_file()).
+
+Propagation Paths can be transformed into time-varying channel impulse responses (CIRs) via cir(). The CIRs can then be used for link-level simulations in Sionna via the functions cir_to_time_channel() or cir_to_ofdm_channel(). Alternatively, you can create a dataset of CIRs that can be used by a channel model with the help of CIRDataset.
+
+The paper Sionna RT: Differentiable Ray Tracing for Radio Propagation Modeling shows how differentiable ray tracing can be used for various optimization tasks. The related notebooks can be a good starting point for your own experiments.
+
+## Radio Materials
+A RadioMaterial contains everything that is needed to enable the simulation of the interaction of a radio wave with an object made of a particular material. More precisely, it consists of the real-valued relative permittivity
+\varepsilon_r
+, the conductivity
+\sigma
+, and the relative permeability
+\mu_r
+. For more details, see (7), (8), (9). These quantities can possibly depend on the frequency of the incident radio wave. Note that Sionna currently only allows non-magnetic materials with
+\mu_r=1
+.
+Additionally, a RadioMaterial can have an effective roughness (ER) associated with it, leading to diffuse reflections (see, e.g., [Degli-Esposti11]). The ER model requires a scattering coefficient
+S\in[0,1]
+(37), a cross-polarization discrimination coefficient
+K_x
+(39), as well as a scattering pattern
+f_\text{s}(\hat{\mathbf{k}}_\text{i}, \hat{\mathbf{k}}_\text{s})
+(40)–(42), such as the LambertianPattern or DirectivePattern. The meaning of these parameters is explained in Scattering.
+Similarly to scene objects (SceneObject), all radio materials are uniquely identified by their name. For example, specifying that a scene object named “wall” is made of the material named “itu-brick” is done as follows:
+obj = scene.get("wall") # obj is a SceneObject
+obj.radio_material = "itu_brick" # "wall" is made of "itu_brick"
+Sionna provides the ITU models of several materials whose properties are automatically updated according to the configured frequency. It is also possible to define custom radio materials.
+Radio materials provided with Sionna
+Sionna provides the models of all of the materials defined in the ITU-R P.2040-2 recommendation [ITUR_P2040_2]. These models are based on curve fitting to measurement results and assume non-ionized and non-magnetic materials (
+\mu_r = 1
+). Frequency dependence is modeled by
+\begin{split}\begin{align}
+   \varepsilon_r &= a f_{\text{GHz}}^b\\
+   \sigma &= c f_{\text{GHz}}^d
+\end{align}\end{split}
+where
+f_{\text{GHz}}
+is the frequency in GHz, and the constants
+a, b, c
+, and
+d
+characterize the material. The table below provides their values which are used in Sionna (from [ITUR_P2040_2]). Note that the relative permittivity
+\varepsilon_r
+and conductivity
+\sigma
+of all materials are updated automatically when the frequency is set through the scene’s property frequency. Moreover, by default, the scattering coefficient,
+S
+, of these materials is set to 0, leading to no diffuse reflection.
+                                Real part of relative permittivity          Conductivity [S/m]
+Material name                   a       b                                   c       d                       Frequency range (GHz)
+vacuum                          1       0                                   0       0                       0.001 – 100
+itu_concrete                    5.24    0                                   0.0462  0.7822                  1 – 100
+itu_brick                       3.91    0                                   0.0238  0.16                    1 – 40
+itu_plasterboard                2.73    0                                   0.0085  0.9395                  1 – 100
+itu_wood                        1.99    0                                   0.0047  1.0718                  0.001 – 100
+itu_glass                       6.31    0                                   0.0036  1.3394                  0.1 – 100
+itu_glass                       5.79    0                                   0.0004  1.658                   220 – 450
+itu_ceiling_board               1.48    0                                   0.0011  1.0750                  1 – 100
+itu_ceiling_board               1.52    0                                   0.0029  1.029                   220 – 450
+itu_chipboard                   2.58    0                                   0.0217  0.7800                  1 – 100
+itu_plywood                     2.71    0                                   0.33    0                       1 – 40
+itu_marble                      7.074   0                                   0.0055  0.9262                  1 – 60
+itu_floorboard                  3.66    0                                   0.0044  1.3515                  50 – 100
+itu_metal                       1       0                                   10^7    0                       1 – 100
+itu_very_dry_ground             3       0                                   0.00015 2.52                    1 – 10
+itu_medium_dry_ground           15      -0.1                                0.035   1.63                    1 – 10
+itu_wet_ground                  30      -0.4                                0.15    1.30                    1 – 10
+
+Defining custom radio materials
+Custom radio materials can be implemented using the RadioMaterial class by specifying a relative permittivity
+\varepsilon_r
+and conductivity
+\sigma
+, as well as optional parameters related to diffuse scattering, such as the scattering coefficient
+S
+, cross-polarization discrimination coefficient
+K_x
+, and scattering pattern
+f_\text{s}(\hat{\mathbf{k}}_\text{i}, \hat{\mathbf{k}}_\text{s})
+. Note that only non-magnetic materials with
+\mu_r=1
+are currently allowed. The following code snippet shows how to create a custom radio material.
+load_scene() # Load empty scene
+custom_material = RadioMaterial("my_material",
+                                relative_permittivity=2.0,
+                                conductivity=5.0,
+                                scattering_coefficient=0.3,
+                                xpd_coefficient=0.1,
+                                scattering_pattern=LambertianPattern())
+It is also possible to define the properties of a material through a callback function that computes the material properties
+(\varepsilon_r, \sigma)
+from the frequency:
+def my_material_callback(f_hz):
+   relative_permittivity = compute_relative_permittivity(f_hz)
+   conductivity = compute_conductivity(f_hz)
+   return (relative_permittivity, conductivity)
+
+custom_material = RadioMaterial("my_material",
+                                frequency_update_callback=my_material_callback)
+scene.add(custom_material)
+Once defined, the custom material can be assigned to a SceneObject using its name:
+obj = scene.get("my_object") # obj is a SceneObject
+obj.radio_material = "my_material" # "my_object" is made of "my_material"
+or the material instance:
+obj = scene.get("my_object") # obj is a SceneObject
+obj.radio_material = custom_material # "my_object" is made of "my_material"
+The material parameters can be assigned to TensorFlow variables or tensors, such as the output of a Keras layer defining a neural network. This allows one to make materials trainable:
+mat = RadioMaterial("my_mat",
+                    relative_permittivity= tf.Variable(2.1, dtype=tf.float32))
+mat.conductivity = tf.Variable(0.0, dtype=tf.float32)
+### class: sionna.rt.RadioMaterial(name, relative_permittivity=1.0, conductivity=0.0, scattering_coefficient=0.0, xpd_coefficient=0.0, scattering_pattern=None, frequency_update_callback=None, dtype=tf.complex64)
+Class implementing a radio material
+A radio material is defined by its relative permittivity
+\varepsilon_r
+and conductivity
+\sigma
+(see (9)), as well as optional parameters related to diffuse scattering, such as the scattering coefficient
+S
+, cross-polarization discrimination coefficient
+K_x
+, and scattering pattern
+f_\text{s}(\hat{\mathbf{k}}_\text{i}, \hat{\mathbf{k}}_\text{s})
+.
+We assume non-ionized and non-magnetic materials, and therefore the permeability
+μ
+of the material is assumed to be equal to the permeability of vacuum i.e.,
+\mu_r=1.0
+.
+For frequency-dependent materials, it is possible to specify a callback function frequency_update_callback that computes the material properties
+(\varepsilon_r, \sigma)
+from the frequency. If a callback function is specified, the material properties cannot be set and the values specified at instantiation are ignored. The callback should return -1 for both the relative permittivity and the conductivity if these are not defined for the given carrier frequency.
+The material properties can be assigned to a TensorFlow variable or tensor. In the latter case, the tensor could be the output of a callable, such as a Keras layer implementing a neural network. In the former case, it could be set to a trainable variable:
+mat = RadioMaterial("my_mat")
+mat.conductivity = tf.Variable(0.0, dtype=tf.float32)
+Parameters
+name (str) – Unique name of the material
+relative_permittivity (float | None) – Relative permittivity of the material. Must be larger or equal to 1. Defaults to 1. Ignored if frequency_update_callback is provided.
+conductivity (float | None) – Conductivity of the material [S/m]. Must be non-negative. Defaults to 0. Ignored if frequency_update_callback is provided.
+scattering_coefficient (float) – Scattering coefficient
+S\in[0,1]
+as defined in (37). Defaults to 0.
+xpd_coefficient (float) – Cross-polarization discrimination coefficient
+K_x\in[0,1]
+as defined in (39). Only relevant if scattering_coefficient>0. Defaults to 0.
+scattering_pattern (ScatteringPattern) – ScatteringPattern to be applied. Only relevant if scattering_coefficient>0. Defaults to None, which implies a LambertianPattern.
+frequency_update_callback (callable | None) –
+An optional callable object used to obtain the material parameters from the scene’s frequency. This callable must take as input the frequency [Hz] and must return the material properties as a tuple:
+(relative_permittivity, conductivity).
+If set to None, the material properties are constant and equal to relative_permittivity and conductivity. Defaults to None.
+dtype (tf.complex64 or tf.complex128) – Datatype. Defaults to tf.complex64.
+property
+complex_relative_permittivity
+Complex relative permittivity
+\eta
+(9)
+Type
+tf.complex (read-only)
+property
+conductivity
+Get/set the conductivity
+\sigma
+[S/m] (9)
+Type
+tf.float
+property
+frequency_update_callback
+Get/set frequency update callback function
+Type
+callable
+property
+is_used
+Indicator if the material is used by at least one object of the scene
+Type
+bool
+property
+name
+Name of the radio material
+Type
+str (read-only)
+property
+relative_permeability
+Relative permeability
+\mu_r
+(8). Defaults to 1.
+Type
+tf.float (read-only)
+property
+relative_permittivity
+Get/set the relative permittivity
+\varepsilon_r
+(9)
+Type
+tf.float
+property
+scattering_coefficient
+Get/set the scattering coefficient
+S\in[0,1]
+(37).
+Type
+tf.float
+property
+scattering_pattern
+Get/set the ScatteringPattern.
+Type
+ScatteringPattern
+property
+use_counter
+Number of scene objects using this material
+Type
+int
+property
+using_objects
+Identifiers of the objects using this material
+Type
+[num_using_objects], tf.int
+property
+well_defined
+Get if the material is well-defined
+Type
+bool
+property
+xpd_coefficient
+Get/set the cross-polarization discrimination coefficient
+K_x\in[0,1]
+(39).
+Type
+tf.float
+### class: sionna.rt.LambertianPattern(dtype=tf.complex64)
+Lambertian scattering model from [Degli-Esposti07] as given in (40)
+Parameters
+dtype (tf.complex64 or tf.complex128) – Datatype used for all computations. Defaults to tf.complex64.
+Input
+k_i ([batch_size, 3], dtype.real_dtype) – Incoming directions
+k_s ([batch_size,3], dtype.real_dtype) – Outgoing directions
+Output
+pattern ([batch_size], dtype.real_dtype) – Scattering pattern
+Example
+>>> LambertianPattern().visualize()
+visualize(k_i=(0.7071, 0.0, - 0.7071), show_directions=False)
+Visualizes the scattering pattern
+It is assumed that the surface normal points toward the positive z-axis.
+Input
+k_i ([3], array_like) – Incoming direction
+show_directions (bool) – If True, the incoming and specular reflection directions are shown. Defaults to False.
+Output
+matplotlib.pyplot.Figure – 3D visualization of the scattering pattern
+matplotlib.pyplot.Figure – Visualization of the incident plane cut through the scattering pattern
+class
+sionna.rt.DirectivePattern(alpha_r, dtype=tf.complex64)[source]
+Directive scattering model from [Degli-Esposti07] as given in (41)
+Parameters
+alpha_r (int, [1,2,...]) – Parameter related to the width of the scattering lobe in the direction of the specular reflection.
+dtype (tf.complex64 or tf.complex128) – Datatype used for all computations. Defaults to tf.complex64.
+Input
+k_i ([batch_size, 3], dtype.real_dtype) – Incoming directions
+k_s ([batch_size,3], dtype.real_dtype) – Outgoing directions
+Output
+pattern ([batch_size], dtype.real_dtype) – Scattering pattern
+Example
+>>> DirectivePattern(alpha_r=10).visualize()
+property
+alpha_r
+Get/set alpha_r
+Type
+bool
+visualize(k_i=(0.7071, 0.0, - 0.7071), show_directions=False)
+Visualizes the scattering pattern
+It is assumed that the surface normal points toward the positive z-axis.
+Input
+k_i ([3], array_like) – Incoming direction
+show_directions (bool) – If True, the incoming and specular reflection directions are shown. Defaults to False.
+Output
+matplotlib.pyplot.Figure – 3D visualization of the scattering pattern
+matplotlib.pyplot.Figure – Visualization of the incident plane cut through the scattering pattern
+class
+sionna.rt.BackscatteringPattern(alpha_r, alpha_i, lambda_, dtype=tf.complex64)[source]
+Backscattering model from [Degli-Esposti07] as given in (42)
+The parameter lambda_ can be assigned to a TensorFlow variable or tensor. In the latter case, the tensor can be the output of a callable, such as a Keras layer implementing a neural network. In the former case, it can be set to a trainable variable:
+sp = BackscatteringPattern(alpha_r=3,
+                           alpha_i=5,
+                           lambda_=tf.Variable(0.3, dtype=tf.float32))
+Parameters
+alpha_r (int, [1,2,...]) – Parameter related to the width of the scattering lobe in the direction of the specular reflection.
+alpha_i (int, [1,2,...]) – Parameter related to the width of the scattering lobe in the incoming direction.
+lambda (float, [0,1]) – Parameter determining the percentage of the diffusely reflected energy in the lobe around the specular reflection.
+dtype (tf.complex64 or tf.complex128) – Datatype used for all computations. Defaults to tf.complex64.
+Input
+k_i ([batch_size, 3], dtype.real_dtype) – Incoming directions
+k_s ([batch_size,3], dtype.real_dtype) – Outgoing directions
+Output
+pattern ([batch_size], dtype.real_dtype) – Scattering pattern
+Example
+>>> BackscatteringPattern(alpha_r=20, alpha_i=30, lambda_=0.7).visualize()
+property
+alpha_i
+Get/set alpha_i
+Type
+bool
+property
+alpha_r
+Get/set alpha_r
+Type
+bool
+property
+lambda_
+Get/set lambda_
+Type
+bool
+visualize(k_i=(0.7071, 0.0, - 0.7071), show_directions=False)
+Visualizes the scattering pattern
+It is assumed that the surface normal points toward the positive z-axis.
+Input
+k_i ([3], array_like) – Incoming direction
+show_directions (bool) – If True, the incoming and specular reflection directions are shown. Defaults to False.
+Output
+matplotlib.pyplot.Figure – 3D visualization of the scattering pattern
+matplotlib.pyplot.Figure – Visualization of the incident plane cut through the scattering pattern
+## Radio Devices
+A radio device refers to a Transmitter or Receiver equipped with an AntennaArray as specified by the Scene’s properties tx_array and rx_array, respectively.
+The following code snippet shows how to instantiate a Transmitter equipped with a
+4 \times 2
+PlanarArray with cross-polarized isotropic antennas:
+ scene.tx_array = PlanarArray(num_rows=4,
+                              num_cols=2,
+                              vertical_spacing=0.5,
+                              horizontal_spacing=0.5,
+                              pattern="iso",
+                              polarization="cross")
+
+ my_tx = Transmitter(name="my_tx",
+                     position=(0,0,0),
+                     orientation=(0,0,0))
+
+scene.add(my_tx)
+The position
+(x,y,z)
+and orientation
+(\alpha, \beta, \gamma)
+of a radio device can be freely configured. The latter is specified through three angles corresponding to a 3D rotation as defined in (3). Both can be assigned to TensorFlow variables or tensors. In the latter case, the tensor can be the output of a callable, such as a Keras layer implementing a neural network. In the former case, it can be set to a trainable variable.
+Radio devices need to be explicitly added to the scene using the scene’s method add() and can be removed from it using remove():
+scene = load_scene()
+scene.add(Transmitter("tx", [10.0, 0.0, 1.5], [0.0,0.0,0.0]))
+scene.remove("tx")

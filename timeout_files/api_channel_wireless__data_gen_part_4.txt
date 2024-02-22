@@ -1,0 +1,467 @@
+# Wireless
+
+## Channel with OFDM waveform
+### class: sionna.channel.GenerateOFDMChannel(channel_model, resource_grid, normalize_channel=False)
+### class: sionna.channel.ApplyOFDMChannel(add_awgn=True, dtype=tf.complex64, **kwargs)
+### sionna.channel.cir_to_ofdm_channel(frequencies, a, tau, normalize=False)
+## Rayleigh block fading
+### class: sionna.channel.RayleighBlockFading(num_rx, num_rx_ant, num_tx, num_tx_ant, dtype=tf.complex64)
+## 3GPP 38.901 channel models
+### class: sionna.channel.tr38901.PanelArray(num_rows_per_panel, num_cols_per_panel, polarization, polarization_type, antenna_pattern, carrier_frequency, num_rows=1, num_cols=1, panel_vertical_spacing=None, panel_horizontal_spacing=None, element_vertical_spacing=None, element_horizontal_spacing=None, dtype=tf.complex64)
+### class: sionna.channel.tr38901.Antenna(polarization, polarization_type, antenna_pattern, carrier_frequency, dtype=tf.complex64)
+### class: sionna.channel.tr38901.AntennaArray(num_rows, num_cols, polarization, polarization_type, antenna_pattern, carrier_frequency, vertical_spacing, horizontal_spacing, dtype=tf.complex64)
+
+# Wireless
+
+This module provides layers and functions that implement wireless channel models. Models currently available include AWGN, flat-fading with (optional) SpatialCorrelation, RayleighBlockFading, as well as models from the 3rd Generation Partnership Project (3GPP) [TR38901]: TDL, CDL, UMi, UMa, and RMa. It is also possible to use externally generated CIRs.
+
+Apart from flat-fading, all of these models generate channel impulse responses (CIRs) that can then be used to implement a channel transfer function in the time domain or assuming an OFDM waveform.
+
+This is achieved using the different functions, classes, and Keras layers which operate as shown in the figures below.
+
+Fig. 7 Channel module architecture for time domain simulations.
+
+Fig. 8 Channel module architecture for simulations assuming OFDM waveform.
+
+A channel model generate CIRs from which channel responses in the time domain or in the frequency domain are computed using the cir_to_time_channel() or cir_to_ofdm_channel() functions, respectively. If one does not need access to the raw CIRs, the GenerateTimeChannel and GenerateOFDMChannel classes can be used to conveniently sample CIRs and generate channel responses in the desired domain.
+
+Once the channel responses in the time or frequency domain are computed, they can be applied to the channel input using the ApplyTimeChannel or ApplyOFDMChannel Keras layers.
+
+The following code snippets show how to setup and run a Rayleigh block fading model assuming an OFDM waveform, and without accessing the CIRs or channel responses. This is the easiest way to setup a channel model. Setting-up other models is done in a similar way, except for AWGN (see the AWGN class documentation).
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+channel  = OFDMChannel(channel_model = rayleigh,
+
+                       resource_grid = rg)
+
+where rg is an instance of ResourceGrid.
+
+Running the channel model is done as follows:
+
+# x is the channel input
+
+# no is the noise variance
+
+y = channel([x, no])
+
+To use the time domain representation of the channel, one can use TimeChannel instead of OFDMChannel.
+
+If access to the channel responses is needed, one can separate their generation from their application to the channel input by setting up the channel model as follows:
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+generate_channel = GenerateOFDMChannel(channel_model = rayleigh,
+
+                                       resource_grid = rg)
+
+
+
+apply_channel = ApplyOFDMChannel()
+
+where rg is an instance of ResourceGrid. Running the channel model is done as follows:
+
+# Generate a batch of channel responses
+
+h = generate_channel(batch_size)
+
+# Apply the channel
+
+# x is the channel input
+
+# no is the noise variance
+
+y = apply_channel([x, h, no])
+
+Generating and applying the channel in the time domain can be achieved by using GenerateTimeChannel and ApplyTimeChannel instead of GenerateOFDMChannel and ApplyOFDMChannel, respectively.
+
+To access the CIRs, setting up the channel can be done as follows:
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+apply_channel = ApplyOFDMChannel()
+
+and running the channel model as follows:
+
+cir = rayleigh(batch_size)
+
+h = cir_to_ofdm_channel(frequencies, *cir)
+
+y = apply_channel([x, h, no])
+
+where frequencies are the subcarrier frequencies in the baseband, which can be computed using the subcarrier_frequencies() utility function.
+
+Applying the channel in the time domain can be done by using cir_to_time_channel() and ApplyTimeChannel instead of cir_to_ofdm_channel() and ApplyOFDMChannel, respectively.
+
+For the purpose of the present document, the following symbols apply:
+
+N_T (u)
+
+Number of transmitters (transmitter index)
+
+N_T (u)
+
+Number of receivers (receiver index)
+
+N_{TA} (k)
+
+Number of antennas per transmitter (transmit antenna index)
+
+N_{RA} (l)
+
+Number of antennas per receiver (receive antenna index)
+
+N_S (s)
+
+Number of OFDM symbols (OFDM symbol index)
+
+N_F (n)
+
+Number of subcarriers (subcarrier index)
+
+N_B (b)
+
+Number of time samples forming the channel input (baseband symbol index)
+
+L_{\text{min}}
+
+Smallest time-lag for the discrete complex baseband channel
+
+L_{\text{max}}
+
+Largest time-lag for the discrete complex baseband channel
+
+M (m)
+
+Number of paths (clusters) forming a power delay profile (path index)
+
+\tau_m(t)
+
+m^{th}
+
+path (cluster) delay at time step
+
+t
+
+a_m(t)
+
+m^{th}
+
+path (cluster) complex coefficient at time step
+
+\Delta_f
+
+Subcarrier spacing
+
+W
+
+Bandwidth
+
+N_0
+
+Noise variance
+
+All transmitters are equipped with
+
+N_{TA}
+
+antennas and all receivers with
+
+N_{RA}
+
+antennas.
+
+A channel model, such as RayleighBlockFading or UMi, is used to generate for each link between antenna
+
+k
+
+of transmitter
+
+u
+
+and antenna
+
+l
+
+of receiver
+
+v
+
+a power delay profile
+
+(a_{u, k, v, l, m}(t), \tau_{u, v, m}), 0 \leq m \leq M-1
+
+. The delays are assumed not to depend on time
+
+t
+
+, and transmit and receive antennas
+
+k
+
+and
+
+l
+
+. Such a power delay profile corresponds to the channel impulse response
+
+h_{u, k, v, l}(t,\tau) =
+
+\sum_{m=0}^{M-1} a_{u, k, v, l,m}(t) \delta(\tau - \tau_{u, v, m})
+
+where
+
+\delta(\cdot)
+
+is the Dirac delta measure. For example, in the case of Rayleigh block fading, the power delay profiles are time-invariant and such that for every link
+
+(u, k, v, l)
+
+\begin{split}\begin{align}
+
+   M                     &= 1\\
+
+   \tau_{u, v, 0}  &= 0\\
+
+   a_{u, k, v, l, 0}     &\sim \mathcal{CN}(0,1).
+
+\end{align}\end{split}
+
+.
+
+3GPP channel models use the procedure depicted in [TR38901] to generate power delay profiles. With these models, the power delay profiles are time-variant in the event of mobility.
+
+### class: sionna.channel.GenerateOFDMChannel(channel_model, resource_grid, normalize_channel=False)
+Generate channel frequency responses. The channel impulse response is constant over the duration of an OFDM symbol.
+Given a channel impulse response
+(a_{m}(t), \tau_{m}), 0 \leq m \leq M-1
+, generated by the channel_model, the channel frequency response for the
+s^{th}
+OFDM symbol and
+n^{th}
+subcarrier is computed as follows:
+\widehat{h}_{s, n} = \sum_{m=0}^{M-1} a_{m}(s) e^{-j2\pi n \Delta_f \tau_{m}}
+where
+\Delta_f
+is the subcarrier spacing, and
+s
+is used as time step to indicate that the channel impulse response can change from one OFDM symbol to the next in the event of mobility, even if it is assumed static over the duration of an OFDM symbol.
+Parameters
+channel_model (ChannelModel object) – An instance of a ChannelModel object, such as RayleighBlockFading or UMi.
+resource_grid (ResourceGrid) – Resource grid
+normalize_channel (bool) – If set to True, the channel is normalized over the resource grid to ensure unit average energy per resource element. Defaults to False.
+dtype (tf.DType) – Complex datatype to use for internal processing and output. Defaults to tf.complex64.
+Input
+batch_size (int) – Batch size. Defaults to None for channel models that do not require this paranmeter.
+Output
+h_freq ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_ofdm_symbols, num_subcarriers], tf.complex) – Channel frequency responses
+### class: sionna.channel.ApplyOFDMChannel(add_awgn=True, dtype=tf.complex64, **kwargs)
+Apply single-tap channel frequency responses to channel inputs.
+This class inherits from the Keras Layer class and can be used as layer in a Keras model.
+For each OFDM symbol
+s
+and subcarrier
+n
+, the single-tap channel is applied as follows:
+y_{s,n} = \widehat{h}_{s, n} x_{s,n} + w_{s,n}
+where
+y_{s,n}
+is the channel output computed by this layer,
+\widehat{h}_{s, n}
+the frequency channel response (h_freq),
+x_{s,n}
+the channel input x, and
+w_{s,n}
+the additive noise.
+For multiple-input multiple-output (MIMO) links, the channel output is computed for each antenna of each receiver and by summing over all the antennas of all transmitters.
+Parameters
+add_awgn (bool) – If set to False, no white Gaussian noise is added. Defaults to True.
+dtype (tf.DType) – Complex datatype to use for internal processing and output. Defaults to tf.complex64.
+Input
+(x, h_freq, no) or (x, h_freq) – Tuple:
+x ([batch size, num_tx, num_tx_ant, num_ofdm_symbols, fft_size], tf.complex) – Channel inputs
+h_freq ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_ofdm_symbols, fft_size], tf.complex) – Channel frequency responses
+no (Scalar or Tensor, tf.float) – Scalar or tensor whose shape can be broadcast to the shape of the channel outputs: [batch size, num_rx, num_rx_ant, num_ofdm_symbols, fft_size]. Only required if add_awgn is set to True. The noise power no is per complex dimension. If no is a scalar, noise of the same variance will be added to the outputs. If no is a tensor, it must have a shape that can be broadcast to the shape of the channel outputs. This allows, e.g., adding noise of different variance to each example in a batch. If no has a lower rank than the channel outputs, then no will be broadcast to the shape of the channel outputs by adding dummy dimensions after the last axis.
+Output
+y ([batch size, num_rx, num_rx_ant, num_ofdm_symbols, fft_size], tf.complex) – Channel outputs
+### sionna.channel.cir_to_ofdm_channel(frequencies, a, tau, normalize=False)
+Compute the frequency response of the channel at frequencies.
+Given a channel impulse response
+(a_{m}, \tau_{m}), 0 \leq m \leq M-1
+(inputs a and tau), the channel frequency response for the frequency
+f
+is computed as follows:
+\widehat{h}(f) = \sum_{m=0}^{M-1} a_{m} e^{-j2\pi f \tau_{m}}
+Input
+frequencies ([fft_size], tf.float) – Frequencies at which to compute the channel response
+a ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths, num_time_steps], tf.complex) – Path coefficients
+tau ([batch size, num_rx, num_tx, num_paths] or [batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths], tf.float) – Path delays
+normalize (bool) – If set to True, the channel is normalized over the resource grid to ensure unit average energy per resource element. Defaults to False.
+Output
+h_f ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_time_steps, fft_size], tf.complex) – Channel frequency responses at frequencies
+## Rayleigh block fading
+### class: sionna.channel.RayleighBlockFading(num_rx, num_rx_ant, num_tx, num_tx_ant, dtype=tf.complex64)
+Generate channel impulse responses corresponding to a Rayleigh block fading channel model.
+The channel impulse responses generated are formed of a single path with zero delay and a normally distributed fading coefficient. All time steps of a batch example share the same channel coefficient (block fading).
+This class can be used in conjunction with the classes that simulate the channel response in time or frequency domain, i.e., OFDMChannel, TimeChannel, GenerateOFDMChannel, ApplyOFDMChannel, GenerateTimeChannel, ApplyTimeChannel.
+Parameters
+num_rx (int) – Number of receivers (
+N_R
+)
+num_rx_ant (int) – Number of antennas per receiver (
+N_{RA}
+)
+num_tx (int) – Number of transmitters (
+N_T
+)
+num_tx_ant (int) – Number of antennas per transmitter (
+N_{TA}
+)
+dtype (tf.DType) – Complex datatype to use for internal processing and output. Defaults to tf.complex64.
+Input
+batch_size (int) – Batch size
+num_time_steps (int) – Number of time steps
+Output
+a ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths = 1, num_time_steps], tf.complex) – Path coefficients
+tau ([batch size, num_rx, num_tx, num_paths = 1], tf.float) – Path delays [s]
+## 3GPP 38.901 channel models
+The submodule tr38901 implements 3GPP channel models from [TR38901].
+The CDL, UMi, UMa, and RMa models require setting-up antenna models for the transmitters and receivers. This is achieved using the PanelArray class.
+The UMi, UMa, and RMa models require setting-up a network topology, specifying, e.g., the user terminals (UTs) and base stations (BSs) locations, the UTs velocities, etc. Utility functions are available to help laying out complex topologies or to quickly setup simple but widely used topologies.
+### class: sionna.channel.tr38901.PanelArray(num_rows_per_panel, num_cols_per_panel, polarization, polarization_type, antenna_pattern, carrier_frequency, num_rows=1, num_cols=1, panel_vertical_spacing=None, panel_horizontal_spacing=None, element_vertical_spacing=None, element_horizontal_spacing=None, dtype=tf.complex64)
+Antenna panel array following the [TR38901] specification.
+This class is used to create models of the panel arrays used by the transmitters and receivers and that need to be specified when using the CDL, UMi, UMa, and RMa models.
+Example
+>>> array = PanelArray(num_rows_per_panel = 4,
+...                    num_cols_per_panel = 4,
+...                    polarization = 'dual',
+...                    polarization_type = 'VH',
+...                    antenna_pattern = '38.901',
+...                    carrier_frequency = 3.5e9,
+...                    num_cols = 2,
+...                    panel_horizontal_spacing = 3.)
+>>> array.show()
+Parameters
+num_rows_per_panel (int) – Number of rows of elements per panel
+num_cols_per_panel (int) – Number of columns of elements per panel
+polarization (str) – Polarization, either “single” or “dual”
+polarization_type (str) – Type of polarization. For single polarization, must be “V” or “H”. For dual polarization, must be “VH” or “cross”.
+antenna_pattern (str) – Element radiation pattern, either “omni” or “38.901”
+carrier_frequency (float) – Carrier frequency [Hz]
+num_rows (int) – Number of rows of panels. Defaults to 1.
+num_cols (int) – Number of columns of panels. Defaults to 1.
+panel_vertical_spacing (None or float) – Vertical spacing of panels [multiples of wavelength]. Must be greater than the panel width. If set to None (default value), it is set to the panel width + 0.5.
+panel_horizontal_spacing (None or float) – Horizontal spacing of panels [in multiples of wavelength]. Must be greater than the panel height. If set to None (default value), it is set to the panel height + 0.5.
+element_vertical_spacing (None or float) – Element vertical spacing [multiple of wavelength]. Defaults to 0.5 if set to None.
+element_horizontal_spacing (None or float) – Element horizontal spacing [multiple of wavelength]. Defaults to 0.5 if set to None.
+dtype (Complex tf.DType) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+property
+ant_ind_pol1
+Indices of antenna elements with the first polarization direction
+property
+ant_ind_pol2
+Indices of antenna elements with the second polarization direction. Only defined with dual polarization.
+property
+ant_pol1
+Field of an antenna element with the first polarization direction
+property
+ant_pol2
+Field of an antenna element with the second polarization direction. Only defined with dual polarization.
+property
+ant_pos
+Positions of the antennas
+property
+ant_pos_pol1
+Positions of the antenna elements with the first polarization direction
+property
+ant_pos_pol2
+Positions of antenna elements with the second polarization direction. Only defined with dual polarization.
+property
+element_horizontal_spacing
+Horizontal spacing between the antenna elements within a panel [multiple of wavelength]
+property
+element_vertical_spacing
+Vertical spacing between the antenna elements within a panel [multiple of wavelength]
+property
+num_ant
+Total number of antenna elements
+property
+num_cols
+Number of columns of panels
+property
+num_cols_per_panel
+Number of columns of elements per panel
+property
+num_panels
+Number of panels
+property
+num_panels_ant
+Number of antenna elements per panel
+property
+num_rows
+Number of rows of panels
+property
+num_rows_per_panel
+Number of rows of elements per panel
+property
+panel_horizontal_spacing
+Horizontal spacing between the panels [multiple of wavelength]
+property
+panel_vertical_spacing
+Vertical spacing between the panels [multiple of wavelength]
+property
+polarization
+Polarization (“single” or “dual”)
+property
+polarization_type
+Polarization type. “V” or “H” for single polarization. “VH” or “cross” for dual polarization.
+show()[source]
+Show the panel array geometry
+show_element_radiation_pattern()[source]
+Show the radiation field of antenna elements forming the panel
+### class: sionna.channel.tr38901.Antenna(polarization, polarization_type, antenna_pattern, carrier_frequency, dtype=tf.complex64)
+Single antenna following the [TR38901] specification.
+This class is a special case of PanelArray, and can be used in lieu of it.
+Parameters
+polarization (str) – Polarization, either “single” or “dual”
+polarization_type (str) – Type of polarization. For single polarization, must be “V” or “H”. For dual polarization, must be “VH” or “cross”.
+antenna_pattern (str) – Element radiation pattern, either “omni” or “38.901”
+carrier_frequency (float) – Carrier frequency [Hz]
+dtype (Complex tf.DType) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+### class: sionna.channel.tr38901.AntennaArray(num_rows, num_cols, polarization, polarization_type, antenna_pattern, carrier_frequency, vertical_spacing, horizontal_spacing, dtype=tf.complex64)
+Antenna array following the [TR38901] specification.
+This class is a special case of PanelArray, and can used in lieu of it.
+Parameters
+num_rows (int) – Number of rows of elements
+num_cols (int) – Number of columns of elements
+polarization (str) – Polarization, either “single” or “dual”
+polarization_type (str) – Type of polarization. For single polarization, must be “V” or “H”. For dual polarization, must be “VH” or “cross”.
+antenna_pattern (str) – Element radiation pattern, either “omni” or “38.901”
+carrier_frequency (float) – Carrier frequency [Hz]
+vertical_spacing (None or float) – Element vertical spacing [multiple of wavelength]. Defaults to 0.5 if set to None.
+horizontal_spacing (None or float) – Element horizontal spacing [multiple of wavelength]. Defaults to 0.5 if set to None.
+dtype (Complex tf.DType) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.

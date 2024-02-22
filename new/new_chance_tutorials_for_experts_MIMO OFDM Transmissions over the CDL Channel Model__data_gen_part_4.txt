@@ -1,0 +1,46 @@
+INSTRUCTION: Import the necessary Sionna library and configure GPU settings while preventing TensorFlow from displaying non-critical log messages.
+ANSWER:To import the necessary Sionna library and configure GPU settings while preventing TensorFlow from displaying non-critical log messages, you can use the following code snippet. This code should be placed at the beginning of your Python script or Jupyter notebook.
+
+```python
+import os
+import tensorflow as tf
+
+# Set the GPU number to use
+gpu_num = '0'  # set to '' to use the CPU instead of a GPU.
+
+# Prevent TensorFlow from displaying non-critical log messages
+os.environ['CUDA_VISIBLE_DEVICES'] = gpu_num
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # 0 = all messages; 1 = INFO messages are not printed;
+                                          # 2 = INFO and WARNING messages are not printed; 3 = INFO, WARNING, and ERROR messages are not printed
+
+# Try to import Sionna. If not present, install it.
+try:
+    import sionna
+except ImportError as e:
+    # Install Sionna if package is not already installed
+    os.system("pip install sionna")
+    import sionna
+
+# Configure TensorFlow to use only the specified GPU and to grow memory usage as needed
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
+
+# Set TensorFlow logger to only display errors
+tf.get_logger().setLevel('ERROR')
+```
+
+This code snippet does the following:
+
+1. Sets the GPU by its ID to be used for computation, or leaves it empty for CPU usage.
+2. Configures the environment variable to control TensorFlow's logging level. It's set such that INFO (1), WARNING (2), and ERROR (3) messages are not printed.
+3. Imports Sionna, installing the package if it's not already installed.
+4. Configures TensorFlow to automatically grow the GPU memory usage as needed, which can be helpful to prevent TensorFlow from consuming all available GPU memory upfront.
+5. Adjusts the TensorFlow logger's level to show only 'ERROR' messages to prevent spamming the output with non-critical log messages.
+

@@ -1,0 +1,213 @@
+### 1. INSTRUCTION:
+Import the BitErrorRate class from sionna.utils and instantiate it using default settings.
+
+**ANSWER:**
+
+```python
+from sionna.utils import BitErrorRate
+
+# Instantiate the BitErrorRate class using default settings
+ber = BitErrorRate()
+```
+
+This creates an instance of the `BitErrorRate` class from the `sionna.utils` package, which can be used to compute the bit error rate (BER) between two binary tensors. No configuration settings are adjusted, so the instance is created with the default parameters.
+
+### 2. INSTRUCTION:
+Explain the purpose of the `sionna.utils.ebnodb2no` function and demonstrate how to use it to calculate the noise variance No given Eb/No in dB, the number of bits per symbol, and coderate, optionally considering OFDM transmission overheads.
+
+**ANSWER:**
+
+The `sionna.utils.ebnodb2no` function computes the noise variance No given an Eb/No ratio (energy per bit to noise power spectral density ratio) expressed in decibels. This function is useful in simulations of digital communication systems where the link quality is often expressed in terms of Eb/No. By providing the Eb/No in dB, the number of bits per symbol (implicitly defining the modulation scheme), and the coderate (the ratio of the number of information bits to the total number of bits after coding), the function calculates the noise variance No, which is essential for simulating the received signal in the presence of noise.
+
+For transmissions using Orthogonal Frequency-Division Multiplexing (OFDM), additional parameters like the cyclic prefix and pilots can also be accounted for by providing a `resource_grid` parameter that describes the OFDM resource element allocation.
+
+Here is how you can use the `sionna.utils.ebnodb2no` function to calculate No:
+
+```python
+import sionna
+
+# Inputs
+ebno_db = 10.0                  # Eb/No value in dB
+num_bits_per_symbol = 2         # For QPSK modulation
+coderate = 0.5                  # Assuming half the bits are used for redundancy
+# The resource_grid parameter is not provided here which means we are not considering OFDM overheads in this example
+
+# Using the function to calculate No
+no = sionna.utils.ebnodb2no(ebno_db, num_bits_per_symbol, coderate)
+
+print(f"The noise variance No is {no:.6f} for an Eb/No of {ebno_db} dB with {num_bits_per_symbol} bits per symbol and a coderate of {coderate}.")
+```
+
+If you were to consider OFDM overheads, you would also need to create an instance of the `ResourceGrid` class that holds information about the allocation of resource elements in the OFDM grid, including elements for data, pilots, and the cyclic prefix. Then, you would pass this instance to the `sionna.utils.ebnodb2no` function as the `resource_grid` parameter.
+
+### 3. INSTRUCTION:
+Use the `sionna.utils.hard_decisions` function and provide an example of how to convert a tensor of log-likelihood ratios (LLRs) into hard decisions, illustrating the output for a sample set of LLRs.
+
+**ANSWER:**
+
+To use the `sionna.utils.hard_decisions` function to convert a tensor of log-likelihood ratios into hard decisions, follow the example below:
+
+```python
+import tensorflow as tf
+import sionna
+
+# Sample tensor of LLRs
+llr_tensor = tf.constant([2.5, -1.0, 0.5, -3.2, 1.2], dtype=tf.float32)
+
+# Convert LLRs to hard decisions
+hard_decisions = sionna.utils.hard_decisions(llr_tensor)
+
+# Print the hard decisions
+print("LLRs:", llr_tensor.numpy())
+print("Hard decisions:", hard_decisions.numpy())
+```
+
+Output:
+```
+LLRs: [ 2.5 -1.   0.5 -3.2  1.2]
+Hard decisions: [1 0 1 0 1]
+```
+
+In this example,
+- Positive values in `llr_tensor` like 2.5 and 1.2 are mapped to a `1`.
+- Nonpositive values in `llr_tensor` like -1.0 and -3.2 are mapped to a `0`.
+
+This `hard_decisions` tensor now contains binary values, representing the hard decisions derived from the input LLRs.
+
+### 4. INSTRUCTION:
+Describe the process to plot Bit Error Rate (BER) versus Eb/No using the `sionna.utils.plotting.plot_ber` function and how to customize the plot title, labels, and axis limits, and also to save the figure as a PNG file.
+
+**ANSWER:**
+
+To plot Bit Error Rate (BER) versus Eb/No using the `sionna.utils.plotting.plot_ber` function and customize the plot title, labels, axis limits, and save the figure as a PNG file, follow these steps:
+
+1. Simulate or gather your data for BER versus Eb/No. You should have two arrays:
+   - `snr_db`: An array of Eb/No points (in dB) at which the BER is evaluated.
+   - `ber`: A corresponding array of BER values for each Eb/No point.
+
+2. Call the `sionna.utils.plotting.plot_ber` function with your data:
+   ```python
+   from sionna.utils.plotting import plot_ber
+
+   fig, ax = plot_ber(snr_db, ber)
+   ```
+
+3. Set the custom plot title, labels, and axis limits by passing the arguments to the `plot_ber` function:
+   ```python
+   title = 'Custom Title'
+   ylabel = 'Custom Y-Label'
+   xlim = (0, 10)  # x-axis limits as a tuple of (min, max)
+   ylim = (1e-5, 1)  # y-axis limits as a tuple of (min, max)
+
+   fig, ax = plot_ber(snr_db, ber, ylabel=ylabel, title=title, ebno=True, xlim=xlim, ylim=ylim)
+   ```
+
+4. If you need to add a legend to your plot, you can do this by providing the `legend` parameter:
+   ```python
+   legend = 'Simulation Data'
+
+   fig, ax = plot_ber(snr_db, ber, legend=legend)
+   ```
+
+5. To save the figure as a PNG file, use the `save_fig` and `path` parameters to specify that the plot should be saved and provide a path for the saved file:
+   ```python
+   save_path = 'ber_vs_ebno.png'  # The path where the file will be saved
+
+   fig, ax = plot_ber(snr_db, ber, save_fig=True, path=save_path)
+   ```
+   This will save the figure at the specified path as a PNG file.
+
+Please note that the above code assumes that you have already completed the calculations or simulations to obtain the arrays for `snr_db` and `ber`. Also, ensure you have the necessary imports before executing these instructions:
+
+```python
+import sionna
+```
+
+Check the library documentation for any version-specific changes or updates to function parameters.
+
+### 5. INSTRUCTION:
+Generate a tensor of complex normal random variables using `sionna.utils.complex_normal` and specify how to set different variances and data types for the tensor.
+
+**ANSWER:**
+
+To generate a tensor of complex normal random variables using `sionna.utils.complex_normal`, you can use the following instruction:
+
+```python
+import sionna
+import tensorflow as tf
+
+# Specify the desired shape of the tensor
+desired_shape = [2, 3]  # This is an example; you can change it to the shape you need
+
+# Set the variance for the complex normal distribution
+# Note: The variance is specified for the total complex variable, where each dimension (real and imaginary) will have variance var/2
+variance = 2.0  # Example variance; you can replace it with your desired variance
+
+# Choose the data type for the tensor
+# Possible choices include tf.complex64 and tf.complex128
+data_type = tf.complex64  # You can change this to tf.complex128 for double precision
+
+# Generate the tensor of complex normal random variables
+complex_tensor = sionna.utils.complex_normal(shape=desired_shape, var=variance, dtype=data_type)
+
+# complex_tensor now contains complex normal random variables with the specified variance and data type
+```
+
+You can adjust the `desired_shape` to match the dimensions you need for your tensor. The `variance` parameter allows you to set the total variance for the complex normal distribution, and by choosing either `tf.complex64` or `tf.complex128` for `data_type`, you can define the precision of the complex numbers in the tensor.
+
+### 6. INSTRUCTION:
+Illustrate the usage of `sionna.utils.log2` and `sionna.utils.log10` functions by evaluating log base 2 and log base 10 of an example tensor input, while maintaining the same data type as the input tensor.
+
+**ANSWER:**
+
+To illustrate the use of `sionna.utils.log2` and `sionna.utils.log10` functions with an example tensor input, we first need to import TensorFlow and the specific Sionna utilities. We then create an example tensor input and use these functions to compute the log base 2 and log base 10 of the tensor, ensuring that the result maintains the same data type as the input tensor.
+
+Here's the Python code for doing that:
+
+```python
+import tensorflow as tf
+import sionna
+
+# Example tensor input
+tensor_input = tf.constant([2, 4, 8, 16], dtype=tf.float32)
+
+# Using sionna.utils.log2 to compute log base 2
+log2_result = sionna.utils.log2(tensor_input)
+log2_result = tf.cast(log2_result, tensor_input.dtype)  # Cast the result to the input data type
+
+# Using sionna.utils.log10 to compute log base 10
+log10_result = sionna.utils.log10(tensor_input)
+log10_result = tf.cast(log10_result, tensor_input.dtype)  # Cast the result to the input data type
+
+# Printing the results
+print("Log base 2 result:", log2_result.numpy())
+print("Log base 10 result:", log10_result.numpy())
+```
+
+In this code:
+- We create `tensor_input` as a `tf.constant` with dtype `tf.float32` containing the values `[2, 4, 8, 16]`.
+- We then apply `sionna.utils.log2` and `sionna.utils.log10` to this tensor to get the log base 2 and log base 10 values, respectively.
+- After computing the logarithms, we ensure they maintain the same data type as `tensor_input` by using `tf.cast` to cast the result back to `tf.float32`.
+- Finally, we print the results using `.numpy()` to convert the `tf.Tensor` to a numpy array for display.
+
+Please make sure you have TensorFlow installed and the Sionna library accessible in your environment before running this code. If Sionna is not installed, you can usually install it using `pip` with a command like `pip install sionna`.
+
+### 7. INSTRUCTION:
+Discuss how the utilities provided by the `sionna.utils` sub-package can extend TensorFlow's basic functions and add convenience for communication system simulations, mentioning the specific enhancements offered by Sionna's utility functions.
+
+**ANSWER:**
+
+The `sionna.utils` sub-package provides a set of utility functions that can extend TensorFlow's basic capabilities and offer additional convenience for those working on communication system simulations. These utilities complement TensorFlow's existing features with enhanced functionality tailored for the specific needs of communications systems engineering. Below, we discuss some of the enhancements offered by Sionna's utility functions in the context of communication system simulations:
+
+1. **Noise Variance Computation - `sionna.utils.ebnodb2no`:** This function calculates the noise variance No given an Eb/No value in decibels (dB). It accounts for the number of encoded bits per symbol, the code rate, and other factors like overhead from OFDM transmissions (cyclic prefixes and pilots). This utility simplifies the noise variance calculation, which is crucial in simulating communications systems' performance under various noise conditions, such as the Signal-to-Noise Ratio (SNR).
+
+2. **Hard Decisions - `sionna.utils.hard_decisions`:** After demodulation, soft decisions in the form of Log Likelihood Ratios (LLRs) need to be converted to hard decisions (bits). This function efficiently maps positive LLRs to a binary 1 and nonpositive LLRs to a binary 0, facilitating error-correction and decoding processes in a simulation workflow.
+
+3. **BER Plotting - `sionna.utils.plotting.plot_ber`:** Visualization is an essential aspect of simulations to analyze the performance of communication systems. This utility function provides a convenient way to plot Bit Error Rate (BER) or Block Error Rate (BLER) against SNR or Eb/No values, enhancing the ease of assessing and presenting simulation results.
+
+4. **Complex Normal Random Variables - `sionna.utils.complex_normal`:** Many communication systems simulations involve generating complex Gaussian noise, which is a key part of channel models. The `complex_normal` utility creates tensors of complex normal random variables with desired shapes and variance, thus facilitating the accurate modeling of noise in the simulation environment.
+
+5. **Logarithmic Operations - `sionna.utils.log2` and `sionna.utils.log10`:** Base-2 and base-10 logarithmic transformations are often needed for calculations related to information theory and signal processing. Sionna extends TensorFlow's native logarithmic functions to cover these bases, casting the result to the input's data type, thereby maintaining data type consistency in simulation workflows.
+
+Overall, the utilities provided by the `sionna.utils` sub-package elevate TensorFlow's basic functions to better fit the specialized needs of communication system simulations. These enhancements allow researchers and engineers to focus more on the modeling and analysis aspects of their work, rather than on the implementation of basic operations specific to their domain.
+

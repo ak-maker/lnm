@@ -1,0 +1,363 @@
+# Ray Tracing
+
+## Radio Devices
+### class: sionna.rt.Transmitter(name, position, orientation=(0.0, 0.0, 0.0), look_at=None, color=(0.16, 0.502, 0.725), dtype=tf.complex64)
+### class: sionna.rt.Receiver(name, position, orientation=(0.0, 0.0, 0.0), look_at=None, color=(0.153, 0.682, 0.375), dtype=tf.complex64)
+## Antenna Arrays
+### class: sionna.rt.AntennaArray(antenna, positions, dtype=tf.complex64)
+### class: sionna.rt.PlanarArray(num_rows, num_cols, vertical_spacing, horizontal_spacing, pattern, polarization=None, polarization_model=2, dtype=tf.complex64)
+## Antennas
+### class: sionna.rt.Antenna(pattern, polarization=None, polarization_model=2, dtype=tf.complex64)
+### sionna.rt.antenna.compute_gain(pattern)
+### sionna.rt.antenna.visualize(pattern)
+### sionna.rt.antenna.dipole_pattern(theta, phi, slant_angle=0.0, polarization_model=2, dtype=tf.complex64)
+### sionna.rt.antenna.hw_dipole_pattern(theta, phi, slant_angle=0.0, polarization_model=2, dtype=tf.complex64)
+### sionna.rt.antenna.iso_pattern(theta, phi, slant_angle=0.0, polarization_model=2, dtype=tf.complex64)
+### sionna.rt.antenna.tr38901_pattern(theta, phi, slant_angle=0.0, polarization_model=2, dtype=tf.complex64)
+### sionna.rt.antenna.polarization_model_1(c_theta, theta, phi, slant_angle)
+
+# Ray Tracing
+
+This module provides a differentiable ray tracer for radio propagation modeling. The best way to get started is by having a look at the Sionna Ray Tracing Tutorial. The Primer on Electromagnetics provides useful background knowledge and various definitions that are used throughout the API documentation.
+
+The most important component of the ray tracer is the Scene. It has methods for the computation of propagation Paths (compute_paths()) and CoverageMap (coverage_map()). Sionna has several integrated Example Scenes that you can use for your own experiments. In this video, we explain how you can create your own scenes using OpenStreetMap and Blender. You can preview a scene within a Jupyter notebook (preview()) or render it to a file from the viewpoint of a camera (render() or render_to_file()).
+
+Propagation Paths can be transformed into time-varying channel impulse responses (CIRs) via cir(). The CIRs can then be used for link-level simulations in Sionna via the functions cir_to_time_channel() or cir_to_ofdm_channel(). Alternatively, you can create a dataset of CIRs that can be used by a channel model with the help of CIRDataset.
+
+The paper Sionna RT: Differentiable Ray Tracing for Radio Propagation Modeling shows how differentiable ray tracing can be used for various optimization tasks. The related notebooks can be a good starting point for your own experiments.
+
+### class: sionna.rt.Transmitter(name, position, orientation=(0.0, 0.0, 0.0), look_at=None, color=(0.16, 0.502, 0.725), dtype=tf.complex64)
+Class defining a transmitter
+The position and orientation properties can be assigned to a TensorFlow variable or tensor. In the latter case, the tensor can be the output of a callable, such as a Keras layer implementing a neural network. In the former case, it can be set to a trainable variable:
+tx = Transmitter(name="my_tx",
+                 position=tf.Variable([0, 0, 0], dtype=tf.float32),
+                 orientation=tf.Variable([0, 0, 0], dtype=tf.float32))
+Parameters
+name (str) – Name
+position ([3], float) – Position
+(x,y,z)
+[m] as three-dimensional vector
+orientation ([3], float) – Orientation
+(\alpha, \beta, \gamma)
+[rad] specified through three angles corresponding to a 3D rotation as defined in (3). This parameter is ignored if look_at is not None. Defaults to [0,0,0].
+look_at ([3], float | Transmitter | Receiver | Camera | None) – A position or the instance of a Transmitter, Receiver, or Camera to look at. If set to None, then orientation is used to orientate the device.
+color ([3], float) – Defines the RGB (red, green, blue) color parameter for the device as displayed in the previewer and renderer. Each RGB component must have a value within the range
+\in [0,1]
+. Defaults to [0.160, 0.502, 0.725].
+dtype (tf.complex) – Datatype to be used in internal calculations. Defaults to tf.complex64.
+property
+color
+Get/set the the RGB (red, green, blue) color for the device as displayed in the previewer and renderer. Each RGB component must have a value within the range
+\in [0,1]
+.
+Type
+[3], float
+look_at(target)
+Sets the orientation so that the x-axis points toward a position, radio device, or camera.
+Given a point
+\mathbf{x}\in\mathbb{R}^3
+with spherical angles
+\theta
+and
+\varphi
+, the orientation of the radio device will be set equal to
+(\varphi, \frac{\pi}{2}-\theta, 0.0)
+.
+Input
+target ([3], float | Transmitter | Receiver | Camera | str) – A position or the name or instance of a Transmitter, Receiver, or Camera in the scene to look at.
+property
+name
+Name
+Type
+str (read-only)
+property
+orientation
+Get/set the orientation
+Type
+[3], tf.float
+property
+position
+Get/set the position
+Type
+[3], tf.float
+### class: sionna.rt.Receiver(name, position, orientation=(0.0, 0.0, 0.0), look_at=None, color=(0.153, 0.682, 0.375), dtype=tf.complex64)
+Class defining a receiver
+The position and orientation properties can be assigned to a TensorFlow variable or tensor. In the latter case, the tensor can be the output of a callable, such as a Keras layer implementing a neural network. In the former case, it can be set to a trainable variable:
+rx = Transmitter(name="my_rx",
+                 position=tf.Variable([0, 0, 0], dtype=tf.float32),
+                 orientation=tf.Variable([0, 0, 0], dtype=tf.float32))
+Parameters
+name (str) – Name
+position ([3], float) – Position
+(x,y,z)
+as three-dimensional vector
+orientation ([3], float) – Orientation
+(\alpha, \beta, \gamma)
+[rad] specified through three angles corresponding to a 3D rotation as defined in (3). This parameter is ignored if look_at is not None. Defaults to [0,0,0].
+look_at ([3], float | Transmitter | Receiver | Camera | None) – A position or the instance of a Transmitter, Receiver, or Camera to look at. If set to None, then orientation is used to orientate the device.
+color ([3], float) – Defines the RGB (red, green, blue) color parameter for the device as displayed in the previewer and renderer. Each RGB component must have a value within the range
+\in [0,1]
+. Defaults to [0.153, 0.682, 0.375].
+dtype (tf.complex) – Datatype to be used in internal calculations. Defaults to tf.complex64.
+property
+color
+Get/set the the RGB (red, green, blue) color for the device as displayed in the previewer and renderer. Each RGB component must have a value within the range
+\in [0,1]
+.
+Type
+[3], float
+look_at(target)
+Sets the orientation so that the x-axis points toward a position, radio device, or camera.
+Given a point
+\mathbf{x}\in\mathbb{R}^3
+with spherical angles
+\theta
+and
+\varphi
+, the orientation of the radio device will be set equal to
+(\varphi, \frac{\pi}{2}-\theta, 0.0)
+.
+Input
+target ([3], float | Transmitter | Receiver | Camera | str) – A position or the name or instance of a Transmitter, Receiver, or Camera in the scene to look at.
+property
+name
+Name
+Type
+str (read-only)
+property
+orientation
+Get/set the orientation
+Type
+[3], tf.float
+property
+position
+Get/set the position
+Type
+[3], tf.float
+## Antenna Arrays
+Transmitters (Transmitter) and receivers (Receiver) are equipped with an AntennaArray that is composed of one or more antennas. All transmitters and all receivers share the same AntennaArray which can be set through the scene properties tx_array and rx_array, respectively.
+### class: sionna.rt.AntennaArray(antenna, positions, dtype=tf.complex64)
+Class implementing an antenna array
+An antenna array is composed of identical antennas that are placed at different positions. The positions parameter can be assigned to a TensorFlow variable or tensor.
+array = AntennaArray(antenna=Antenna("tr38901", "V"),
+                     positions=tf.Variable([[0,0,0], [0, 1, 1]]))
+Parameters
+antenna (Antenna) – Antenna instance
+positions ([array_size, 3], array_like) – Array of relative positions
+(x,y,z)
+[m] of each antenna (dual-polarized antennas are counted as a single antenna and share the same position). The absolute position of the antennas is obtained by adding the position of the Transmitter or Receiver using it.
+dtype (tf.complex64 or tf.complex128) – Data type used for all computations. Defaults to tf.complex64.
+property
+antenna
+Get/set the antenna
+Type
+Antenna
+property
+array_size
+Number of antennas in the array. Dual-polarized antennas are counted as a single antenna.
+Type
+int (read-only)
+property
+num_ant
+Number of linearly polarized antennas in the array. Dual-polarized antennas are counted as two linearly polarized antennas.
+Type
+int (read-only)
+property
+positions
+Get/set array of relative positions
+(x,y,z)
+[m] of each antenna (dual-polarized antennas are counted as a single antenna and share the same position).
+Type
+[array_size, 3], tf.float
+rotated_positions(orientation)[source]
+Get the antenna positions rotated according to orientation
+Input
+orientation ([3], tf.float) – Orientation
+(\alpha, \beta, \gamma)
+[rad] specified through three angles corresponding to a 3D rotation as defined in (3).
+Output
+[array_size, 3] – Rotated positions
+### class: sionna.rt.PlanarArray(num_rows, num_cols, vertical_spacing, horizontal_spacing, pattern, polarization=None, polarization_model=2, dtype=tf.complex64)
+Class implementing a planar antenna array
+The antennas are regularly spaced, located in the y-z plane, and numbered column-first from the top-left to bottom-right corner.
+Parameters
+num_rows (int) – Number of rows
+num_cols (int) – Number of columns
+vertical_spacing (float) – Vertical antenna spacing [multiples of wavelength].
+horizontal_spacing (float) – Horizontal antenna spacing [multiples of wavelength].
+pattern (str, callable, or length-2 sequence of callables) – Antenna pattern. Either one of [“iso”, “dipole”, “hw_dipole”, “tr38901”], or a callable, or a length-2 sequence of callables defining antenna patterns. In the latter case, the antennas are dual polarized and each callable defines the antenna pattern in one of the two orthogonal polarization directions. An antenna pattern is a callable that takes as inputs vectors of zenith and azimuth angles of the same length and returns for each pair the corresponding zenith and azimuth patterns. See (14) for more detail.
+polarization (str or None) – Type of polarization. For single polarization, must be “V” (vertical) or “H” (horizontal). For dual polarization, must be “VH” or “cross”. Only needed if pattern is a string.
+polarization_model (int, one of [1,2]) – Polarization model to be used. Options 1 and 2 refer to polarization_model_1() and polarization_model_2(), respectively. Defaults to 2.
+dtype (tf.complex64 or tf.complex128) – Datatype used for all computations. Defaults to tf.complex64.
+Example
+array = PlanarArray(8,4, 0.5, 0.5, "tr38901", "VH")
+array.show()
+property
+antenna
+Get/set the antenna
+Type
+Antenna
+property
+array_size
+Number of antennas in the array. Dual-polarized antennas are counted as a single antenna.
+Type
+int (read-only)
+property
+num_ant
+Number of linearly polarized antennas in the array. Dual-polarized antennas are counted as two linearly polarized antennas.
+Type
+int (read-only)
+property
+positions
+Get/set array of relative positions
+(x,y,z)
+[m] of each antenna (dual-polarized antennas are counted as a single antenna and share the same position).
+Type
+[array_size, 3], tf.float
+rotated_positions(orientation)
+Get the antenna positions rotated according to orientation
+Input
+orientation ([3], tf.float) – Orientation
+(\alpha, \beta, \gamma)
+[rad] specified through three angles corresponding to a 3D rotation as defined in (3).
+Output
+[array_size, 3] – Rotated positions
+show()[source]
+Visualizes the antenna array
+Antennas are depicted by markers that are annotated with the antenna number. The marker is not related to the polarization of an antenna.
+Output
+matplotlib.pyplot.Figure – Figure depicting the antenna array
+## Antennas
+We refer the user to the section “Far Field of a Transmitting Antenna” for various useful definitions and background on antenna modeling. An Antenna can be single- or dual-polarized and has for each polarization direction a possibly different antenna pattern.
+An antenna pattern is defined as a function
+f:(\theta,\varphi)\mapsto (C_\theta(\theta, \varphi), C_\varphi(\theta, \varphi))
+that maps a pair of zenith and azimuth angles to zenith and azimuth pattern values. You can easily define your own pattern or use one of the predefined patterns below.
+Transmitters (Transmitter) and receivers (Receiver) are not equipped with an Antenna but an AntennaArray that is composed of one or more antennas. All transmitters in a scene share the same AntennaArray which can be set through the scene property tx_array. The same holds for all receivers whose AntennaArray can be set through rx_array.
+### class: sionna.rt.Antenna(pattern, polarization=None, polarization_model=2, dtype=tf.complex64)
+Class implementing an antenna
+Creates an antenna object with an either predefined or custom antenna pattern. Can be single or dual polarized.
+Parameters
+pattern (str, callable, or length-2 sequence of callables) – Antenna pattern. Either one of [“iso”, “dipole”, “hw_dipole”, “tr38901”], or a callable, or a length-2 sequence of callables defining antenna patterns. In the latter case, the antenna is dual polarized and each callable defines the antenna pattern in one of the two orthogonal polarization directions. An antenna pattern is a callable that takes as inputs vectors of zenith and azimuth angles of the same length and returns for each pair the corresponding zenith and azimuth patterns.
+polarization (str or None) – Type of polarization. For single polarization, must be “V” (vertical) or “H” (horizontal). For dual polarization, must be “VH” or “cross”. Only needed if pattern is a string.
+polarization_model (int, one of [1,2]) – Polarization model to be used. Options 1 and 2 refer to polarization_model_1() and polarization_model_2(), respectively. Defaults to 2.
+dtype (tf.complex64 or tf.complex128) – Datatype used for all computations. Defaults to tf.complex64.
+Example
+>>> Antenna("tr38901", "VH")
+property
+patterns
+Antenna patterns for one or two polarization directions
+Type
+list, callable
+### sionna.rt.antenna.compute_gain(pattern)
+Computes the directivity, gain, and radiation efficiency of an antenna pattern
+Given a function
+f:(\theta,\varphi)\mapsto (C_\theta(\theta, \varphi), C_\varphi(\theta, \varphi))
+describing an antenna pattern (14), this function computes the gain
+G
+, directivity
+D
+, and radiation efficiency
+\eta_\text{rad}=G/D
+(see (12) and text below).
+Input
+pattern (callable) – A callable that takes as inputs vectors of zenith and azimuth angles of the same length and returns for each pair the corresponding zenith and azimuth patterns.
+Output
+D (float) – Directivity
+D
+G (float) – Gain
+G
+eta_rad (float) – Radiation efficiency
+\eta_\text{rad}
+Examples
+>>> compute_gain(tr38901_pattern)
+(<tf.Tensor: shape=(), dtype=float32, numpy=9.606758>,
+ <tf.Tensor: shape=(), dtype=float32, numpy=6.3095527>,
+ <tf.Tensor: shape=(), dtype=float32, numpy=0.65678275>)
+### sionna.rt.antenna.visualize(pattern)
+Visualizes an antenna pattern
+This function visualizes an antenna pattern with the help of three figures showing the vertical and horizontal cuts as well as a three-dimensional visualization of the antenna gain.
+Input
+pattern (callable) – A callable that takes as inputs vectors of zenith and azimuth angles of the same length and returns for each pair the corresponding zenith and azimuth patterns.
+Output
+matplotlib.pyplot.Figure – Vertical cut of the antenna gain
+matplotlib.pyplot.Figure – Horizontal cut of the antenna gain
+matplotlib.pyplot.Figure – 3D visualization of the antenna gain
+Examples
+>>> fig_v, fig_h, fig_3d = visualize(hw_dipole_pattern)
+### sionna.rt.antenna.dipole_pattern(theta, phi, slant_angle=0.0, polarization_model=2, dtype=tf.complex64)
+Short dipole pattern with linear polarizarion (Eq. 4-26a) [Balanis97]
+Input
+theta (array_like, float) – Zenith angles wrapped within [0,pi] [rad]
+phi (array_like, float) – Azimuth angles wrapped within [-pi, pi) [rad]
+slant_angle (float) – Slant angle of the linear polarization [rad]. A slant angle of zero means vertical polarization.
+polarization_model (int, one of [1,2]) – Polarization model to be used. Options 1 and 2 refer to polarization_model_1() and polarization_model_2(), respectively. Defaults to 2.
+dtype (tf.complex64 or tf.complex128) – Datatype. Defaults to tf.complex64.
+Output
+c_theta (array_like, complex) – Zenith pattern
+c_phi (array_like, complex) – Azimuth pattern
+### sionna.rt.antenna.hw_dipole_pattern(theta, phi, slant_angle=0.0, polarization_model=2, dtype=tf.complex64)
+Half-wavelength dipole pattern with linear polarizarion (Eq. 4-84) [Balanis97]
+Input
+theta (array_like, float) – Zenith angles wrapped within [0,pi] [rad]
+phi (array_like, float) – Azimuth angles wrapped within [-pi, pi) [rad]
+slant_angle (float) – Slant angle of the linear polarization [rad]. A slant angle of zero means vertical polarization.
+polarization_model (int, one of [1,2]) – Polarization model to be used. Options 1 and 2 refer to polarization_model_1() and polarization_model_2(), respectively. Defaults to 2.
+dtype (tf.complex64 or tf.complex128) – Datatype. Defaults to tf.complex64.
+Output
+c_theta (array_like, complex) – Zenith pattern
+c_phi (array_like, complex) – Azimuth pattern
+### sionna.rt.antenna.iso_pattern(theta, phi, slant_angle=0.0, polarization_model=2, dtype=tf.complex64)
+Isotropic antenna pattern with linear polarizarion
+Input
+theta (array_like, float) – Zenith angles wrapped within [0,pi] [rad]
+phi (array_like, float) – Azimuth angles wrapped within [-pi, pi) [rad]
+slant_angle (float) – Slant angle of the linear polarization [rad]. A slant angle of zero means vertical polarization.
+polarization_model (int, one of [1,2]) – Polarization model to be used. Options 1 and 2 refer to polarization_model_1() and polarization_model_2(), respectively. Defaults to 2.
+dtype (tf.complex64 or tf.complex128) – Datatype. Defaults to tf.complex64.
+Output
+c_theta (array_like, complex) – Zenith pattern
+c_phi (array_like, complex) – Azimuth pattern
+### sionna.rt.antenna.tr38901_pattern(theta, phi, slant_angle=0.0, polarization_model=2, dtype=tf.complex64)
+Antenna pattern from 3GPP TR 38.901 (Table 7.3-1) [TR38901]
+Input
+theta (array_like, float) – Zenith angles wrapped within [0,pi] [rad]
+phi (array_like, float) – Azimuth angles wrapped within [-pi, pi) [rad]
+slant_angle (float) – Slant angle of the linear polarization [rad]. A slant angle of zero means vertical polarization.
+polarization_model (int, one of [1,2]) – Polarization model to be used. Options 1 and 2 refer to polarization_model_1() and polarization_model_2(), respectively. Defaults to 2.
+dtype (tf.complex64 or tf.complex128) – Datatype. Defaults to tf.complex64.
+Output
+c_theta (array_like, complex) – Zenith pattern
+c_phi (array_like, complex) – Azimuth pattern
+### sionna.rt.antenna.polarization_model_1(c_theta, theta, phi, slant_angle)
+Model-1 for polarized antennas from 3GPP TR 38.901
+Transforms a vertically polarized antenna pattern
+\tilde{C}_\theta(\theta, \varphi)
+into a linearly polarized pattern whose direction is specified by a slant angle
+\zeta
+. For example,
+\zeta=0
+and
+\zeta=\pi/2
+correspond to vertical and horizontal polarization, respectively, and
+\zeta=\pm \pi/4
+to a pair of cross polarized antenna elements.
+The transformed antenna pattern is given by (7.3-3) [TR38901]:
+\begin{split}\begin{align}
+    \begin{bmatrix}
+        C_\theta(\theta, \varphi) \\
+        C_\varphi(\theta, \varphi)
+    \end{bmatrix} &= \begin{bmatrix}
+     \cos(\psi) \\
+     \sin(\psi)
+    \end{bmatrix} \tilde{C}_\theta(\theta, \varphi)\\
+    \cos(\psi) &= \frac{\cos(\zeta)\sin(\theta)+\sin(\zeta)\sin(\varphi)\cos(\theta)}{\sqrt{1-\left(\cos(\zeta)\cos(\theta)-\sin(\zeta)\sin(\varphi)\sin(\theta)\right)^2}} \\
+    \sin(\psi) &= \frac{\sin(\zeta)\cos(\varphi)}{\sqrt{1-\left(\cos(\zeta)\cos(\theta)-\sin(\zeta)\sin(\varphi)\sin(\theta)\right)^2}}
+\end{align}\end{split}
+Input
+c_tilde_theta (array_like, complex) – Zenith pattern
+theta (array_like, float) – Zenith angles wrapped within [0,pi] [rad]
+phi (array_like, float) – Azimuth angles wrapped within [-pi, pi) [rad]
+slant_angle (float) – Slant angle of the linear polarization [rad]. A slant angle of zero means vertical polarization.
+Output
+c_theta (array_like, complex) – Zenith pattern
+c_phi (array_like, complex) – Azimuth pattern

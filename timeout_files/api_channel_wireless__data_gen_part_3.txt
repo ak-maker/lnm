@@ -1,0 +1,473 @@
+# Wireless
+
+## Time domain channel
+### class: sionna.channel.ApplyTimeChannel(num_time_samples, l_tot, add_awgn=True, dtype=tf.complex64, **kwargs)
+### sionna.channel.cir_to_time_channel(bandwidth, a, tau, l_min, l_max, normalize=False)
+### sionna.channel.time_to_ofdm_channel(h_t, rg, l_min)
+## Channel with OFDM waveform
+### class: sionna.channel.OFDMChannel(channel_model, resource_grid, add_awgn=True, normalize_channel=False, return_channel=False, dtype=tf.complex64, **kwargs)
+
+# Wireless
+
+This module provides layers and functions that implement wireless channel models. Models currently available include AWGN, flat-fading with (optional) SpatialCorrelation, RayleighBlockFading, as well as models from the 3rd Generation Partnership Project (3GPP) [TR38901]: TDL, CDL, UMi, UMa, and RMa. It is also possible to use externally generated CIRs.
+
+Apart from flat-fading, all of these models generate channel impulse responses (CIRs) that can then be used to implement a channel transfer function in the time domain or assuming an OFDM waveform.
+
+This is achieved using the different functions, classes, and Keras layers which operate as shown in the figures below.
+
+Fig. 7 Channel module architecture for time domain simulations.
+
+Fig. 8 Channel module architecture for simulations assuming OFDM waveform.
+
+A channel model generate CIRs from which channel responses in the time domain or in the frequency domain are computed using the cir_to_time_channel() or cir_to_ofdm_channel() functions, respectively. If one does not need access to the raw CIRs, the GenerateTimeChannel and GenerateOFDMChannel classes can be used to conveniently sample CIRs and generate channel responses in the desired domain.
+
+Once the channel responses in the time or frequency domain are computed, they can be applied to the channel input using the ApplyTimeChannel or ApplyOFDMChannel Keras layers.
+
+The following code snippets show how to setup and run a Rayleigh block fading model assuming an OFDM waveform, and without accessing the CIRs or channel responses. This is the easiest way to setup a channel model. Setting-up other models is done in a similar way, except for AWGN (see the AWGN class documentation).
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+channel  = OFDMChannel(channel_model = rayleigh,
+
+                       resource_grid = rg)
+
+where rg is an instance of ResourceGrid.
+
+Running the channel model is done as follows:
+
+# x is the channel input
+
+# no is the noise variance
+
+y = channel([x, no])
+
+To use the time domain representation of the channel, one can use TimeChannel instead of OFDMChannel.
+
+If access to the channel responses is needed, one can separate their generation from their application to the channel input by setting up the channel model as follows:
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+generate_channel = GenerateOFDMChannel(channel_model = rayleigh,
+
+                                       resource_grid = rg)
+
+
+
+apply_channel = ApplyOFDMChannel()
+
+where rg is an instance of ResourceGrid. Running the channel model is done as follows:
+
+# Generate a batch of channel responses
+
+h = generate_channel(batch_size)
+
+# Apply the channel
+
+# x is the channel input
+
+# no is the noise variance
+
+y = apply_channel([x, h, no])
+
+Generating and applying the channel in the time domain can be achieved by using GenerateTimeChannel and ApplyTimeChannel instead of GenerateOFDMChannel and ApplyOFDMChannel, respectively.
+
+To access the CIRs, setting up the channel can be done as follows:
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+apply_channel = ApplyOFDMChannel()
+
+and running the channel model as follows:
+
+cir = rayleigh(batch_size)
+
+h = cir_to_ofdm_channel(frequencies, *cir)
+
+y = apply_channel([x, h, no])
+
+where frequencies are the subcarrier frequencies in the baseband, which can be computed using the subcarrier_frequencies() utility function.
+
+Applying the channel in the time domain can be done by using cir_to_time_channel() and ApplyTimeChannel instead of cir_to_ofdm_channel() and ApplyOFDMChannel, respectively.
+
+For the purpose of the present document, the following symbols apply:
+
+N_T (u)
+
+Number of transmitters (transmitter index)
+
+N_T (u)
+
+Number of receivers (receiver index)
+
+N_{TA} (k)
+
+Number of antennas per transmitter (transmit antenna index)
+
+N_{RA} (l)
+
+Number of antennas per receiver (receive antenna index)
+
+N_S (s)
+
+Number of OFDM symbols (OFDM symbol index)
+
+N_F (n)
+
+Number of subcarriers (subcarrier index)
+
+N_B (b)
+
+Number of time samples forming the channel input (baseband symbol index)
+
+L_{\text{min}}
+
+Smallest time-lag for the discrete complex baseband channel
+
+L_{\text{max}}
+
+Largest time-lag for the discrete complex baseband channel
+
+M (m)
+
+Number of paths (clusters) forming a power delay profile (path index)
+
+\tau_m(t)
+
+m^{th}
+
+path (cluster) delay at time step
+
+t
+
+a_m(t)
+
+m^{th}
+
+path (cluster) complex coefficient at time step
+
+\Delta_f
+
+Subcarrier spacing
+
+W
+
+Bandwidth
+
+N_0
+
+Noise variance
+
+All transmitters are equipped with
+
+N_{TA}
+
+antennas and all receivers with
+
+N_{RA}
+
+antennas.
+
+A channel model, such as RayleighBlockFading or UMi, is used to generate for each link between antenna
+
+k
+
+of transmitter
+
+u
+
+and antenna
+
+l
+
+of receiver
+
+v
+
+a power delay profile
+
+(a_{u, k, v, l, m}(t), \tau_{u, v, m}), 0 \leq m \leq M-1
+
+. The delays are assumed not to depend on time
+
+t
+
+, and transmit and receive antennas
+
+k
+
+and
+
+l
+
+. Such a power delay profile corresponds to the channel impulse response
+
+h_{u, k, v, l}(t,\tau) =
+
+\sum_{m=0}^{M-1} a_{u, k, v, l,m}(t) \delta(\tau - \tau_{u, v, m})
+
+where
+
+\delta(\cdot)
+
+is the Dirac delta measure. For example, in the case of Rayleigh block fading, the power delay profiles are time-invariant and such that for every link
+
+(u, k, v, l)
+
+\begin{split}\begin{align}
+
+   M                     &= 1\\
+
+   \tau_{u, v, 0}  &= 0\\
+
+   a_{u, k, v, l, 0}     &\sim \mathcal{CN}(0,1).
+
+\end{align}\end{split}
+
+.
+
+3GPP channel models use the procedure depicted in [TR38901] to generate power delay profiles. With these models, the power delay profiles are time-variant in the event of mobility.
+
+### class: sionna.channel.ApplyTimeChannel(num_time_samples, l_tot, add_awgn=True, dtype=tf.complex64, **kwargs)
+Apply time domain channel responses h_time to channel inputs x, by filtering the channel inputs with time-variant channel responses.
+This class inherits from the Keras Layer class and can be used as layer in a Keras model.
+For each batch example, num_time_samples + l_tot - 1 time steps of a channel realization are required to filter the channel inputs.
+The channel output consists of num_time_samples + l_tot - 1 time samples, as it is the result of filtering the channel input of length num_time_samples with the time-variant channel filter of length l_tot. In the case of a single-input single-output link and given a sequence of channel inputs
+x_0,\cdots,x_{N_B}
+, where
+N_B
+is num_time_samples, this layer outputs
+y_b = \sum_{\ell = 0}^{L_{\text{tot}}} x_{b-\ell} \bar{h}_{b,\ell} + w_bwhere
+L_{\text{tot}}
+corresponds l_tot,
+w_b
+to the additive noise, and
+\bar{h}_{b,\ell}
+to the
+\ell^{th}
+tap of the
+b^{th}
+channel sample. This layer outputs
+y_b
+for
+b
+ranging from 0 to
+N_B + L_{\text{tot}} - 1
+, and
+x_{b}
+is set to 0 for
+b \geq N_B
+.
+For multiple-input multiple-output (MIMO) links, the channel output is computed for each antenna of each receiver and by summing over all the antennas of all transmitters.
+Parameters
+num_time_samples (int) – Number of time samples forming the channel input (
+N_B
+)
+l_tot (int) – Length of the channel filter (
+L_{\text{tot}} = L_{\text{max}} - L_{\text{min}} + 1
+)
+add_awgn (bool) – If set to False, no white Gaussian noise is added. Defaults to True.
+dtype (tf.DType) – Complex datatype to use for internal processing and output. Defaults to tf.complex64.
+Input
+(x, h_time, no) or (x, h_time) – Tuple:
+x ([batch size, num_tx, num_tx_ant, num_time_samples], tf.complex) – Channel inputs
+h_time ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_time_samples + l_tot - 1, l_tot], tf.complex) – Channel responses. For each batch example, num_time_samples + l_tot - 1 time steps of a channel realization are required to filter the channel inputs.
+no (Scalar or Tensor, tf.float) – Scalar or tensor whose shape can be broadcast to the shape of the channel outputs: [batch size, num_rx, num_rx_ant, num_time_samples + l_tot - 1]. Only required if add_awgn is set to True. The noise power no is per complex dimension. If no is a scalar, noise of the same variance will be added to the outputs. If no is a tensor, it must have a shape that can be broadcast to the shape of the channel outputs. This allows, e.g., adding noise of different variance to each example in a batch. If no has a lower rank than the channel outputs, then no will be broadcast to the shape of the channel outputs by adding dummy dimensions after the last axis.
+Output
+y ([batch size, num_rx, num_rx_ant, num_time_samples + l_tot - 1], tf.complex) – Channel outputs. The channel output consists of num_time_samples + l_tot - 1 time samples, as it is the result of filtering the channel input of length num_time_samples with the time-variant channel filter of length l_tot.
+### sionna.channel.cir_to_time_channel(bandwidth, a, tau, l_min, l_max, normalize=False)
+Compute the channel taps forming the discrete complex-baseband representation of the channel from the channel impulse response (a, tau).
+This function assumes that a sinc filter is used for pulse shaping and receive filtering. Therefore, given a channel impulse response
+(a_{m}(t), \tau_{m}), 0 \leq m \leq M-1
+, the channel taps are computed as follows:
+\bar{h}_{b, \ell}
+= \sum_{m=0}^{M-1} a_{m}\left(\frac{b}{W}\right)
+    \text{sinc}\left( \ell - W\tau_{m} \right)
+for
+\ell
+ranging from l_min to l_max, and where
+W
+is the bandwidth.
+Input
+bandwidth (float) – Bandwidth [Hz]
+a ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths, num_time_steps], tf.complex) – Path coefficients
+tau ([batch size, num_rx, num_tx, num_paths] or [batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths], tf.float) – Path delays [s]
+l_min (int) – Smallest time-lag for the discrete complex baseband channel (
+L_{\text{min}}
+l_max (int) – Largest time-lag for the discrete complex baseband channel (
+L_{\text{max}}
+normalize (bool) – If set to True, the channel is normalized over the block size to ensure unit average energy per time step. Defaults to False.
+Output
+hm ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_time_steps, l_max - l_min + 1], tf.complex) – Channel taps coefficients
+### sionna.channel.time_to_ofdm_channel(h_t, rg, l_min)
+Compute the channel frequency response from the discrete complex-baseband channel impulse response.
+Given a discrete complex-baseband channel impulse response
+\bar{h}_{b,\ell}
+, for
+\ell
+ranging from
+L_\text{min}\le 0
+to
+L_\text{max}
+, the discrete channel frequency response is computed as
+\hat{h}_{b,n} = \sum_{k=0}^{L_\text{max}} \bar{h}_{b,k} e^{-j \frac{2\pi kn}{N}} + \sum_{k=L_\text{min}}^{-1} \bar{h}_{b,k} e^{-j \frac{2\pi n(N+k)}{N}}, \quad n=0,\dots,N-1
+where
+N
+is the FFT size and
+b
+is the time step.
+This function only produces one channel frequency response per OFDM symbol, i.e., only values of
+b
+corresponding to the start of an OFDM symbol (after cyclic prefix removal) are considered.
+Input
+h_t ([…num_time_steps,l_max-l_min+1], tf.complex) – Tensor of discrete complex-baseband channel impulse responses
+resource_grid (ResourceGrid) – Resource grid
+l_min (int) – Smallest time-lag for the discrete complex baseband channel impulse response (
+L_{\text{min}}
+Output
+h_f ([…,num_ofdm_symbols,fft_size], tf.complex) – Tensor of discrete complex-baseband channel frequency responses
+Note
+Note that the result of this function is generally different from the output of cir_to_ofdm_channel() because the discrete complex-baseband channel impulse response is truncated (see cir_to_time_channel()). This effect can be observed in the example below.
+Examples
+# Setup resource grid and channel model
+tf.random.set_seed(4)
+sm = StreamManagement(np.array([[1]]), 1)
+rg = ResourceGrid(num_ofdm_symbols=1,
+                  fft_size=1024,
+                  subcarrier_spacing=15e3)
+tdl = TDL("A", 100e-9, 3.5e9)
+
+# Generate CIR
+cir = tdl(batch_size=1, num_time_steps=1, sampling_frequency=rg.bandwidth)
+
+# Generate OFDM channel from CIR
+frequencies = subcarrier_frequencies(rg.fft_size, rg.subcarrier_spacing)
+h_freq = tf.squeeze(cir_to_ofdm_channel(frequencies, *cir, normalize=True))
+
+# Generate time channel from CIR
+l_min, l_max = time_lag_discrete_time_channel(rg.bandwidth)
+h_time = cir_to_time_channel(rg.bandwidth, *cir, l_min=l_min, l_max=l_max, normalize=True)
+
+# Generate OFDM channel from time channel
+h_freq_hat = tf.squeeze(time_to_ofdm_channel(h_time, rg, l_min))
+
+# Visualize results
+plt.figure()
+plt.plot(np.real(h_freq), "-")
+plt.plot(np.real(h_freq_hat), "--")
+plt.plot(np.imag(h_freq), "-")
+plt.plot(np.imag(h_freq_hat), "--")
+plt.xlabel("Subcarrier index")
+plt.ylabel(r"Channel frequency response")
+plt.legend(["OFDM Channel (real)", "OFDM Channel from time (real)", "OFDM Channel (imag)", "OFDM Channel from time (imag)"])
+## Channel with OFDM waveform
+To implement the channel response assuming an OFDM waveform, it is assumed that the power delay profiles are invariant over the duration of an OFDM symbol. Moreover, it is assumed that the duration of the cyclic prefix (CP) equals at least the maximum delay spread. These assumptions are common in the literature, as they enable modeling of the channel transfer function in the frequency domain as a single-tap channel.
+For every link
+(u, k, v, l)
+and resource element
+(s,n)
+, the frequency channel response is obtained by computing the Fourier transform of the channel response at the subcarrier frequencies, i.e.,
+\begin{split}\begin{align}
+\widehat{h}_{u, k, v, l, s, n}
+   &= \int_{-\infty}^{+\infty} h_{u, k, v, l}(s,\tau) e^{-j2\pi n \Delta_f \tau} d\tau\\
+   &= \sum_{m=0}^{M-1} a_{u, k, v, l, m}(s)
+   e^{-j2\pi n \Delta_f \tau_{u, k, v, l, m}}
+\end{align}\end{split}
+,
+where
+s
+is used as time step to indicate that the channel response can change from one OFDM symbol to the next in the event of mobility, even if it is assumed static over the duration of an OFDM symbol.
+For every receive antenna
+l
+of every receiver
+v
+, the received signal
+y_{v, l, s, n}
+for resource element
+(s, n)
+is computed by
+y_{v, l, s, n} = \sum_{u=0}^{N_{T}-1}\sum_{k=0}^{N_{TA}-1}
+   \widehat{h}_{u, k, v, l, s, n} x_{u, k, s, n}
+   + w_{v, l, s, n}
+where
+x_{u, k, s, n}
+is the baseband symbol transmitted by transmitter
+u
+on antenna
+k
+and resource element
+(s, n)
+, and
+w_{v, l, s, n} \sim \mathcal{CN}\left(0,N_0\right)
+the additive white Gaussian noise.
+Note
+This model does not account for intersymbol interference (ISI) nor intercarrier interference (ICI). To model the ICI due to channel aging over the duration of an OFDM symbol or the ISI due to a delay spread exceeding the CP duration, one would need to simulate the channel in the time domain. This can be achieved by using the OFDMModulator and OFDMDemodulator layers, and the time domain channel model. By doing so, one performs inverse discrete Fourier transform (IDFT) on the transmitter side and discrete Fourier transform (DFT) on the receiver side on top of a single-carrier sinc-shaped waveform. This is equivalent to simulating the channel in the frequency domain if no ISI nor ICI is assumed, but allows the simulation of these effects in the event of a non-stationary channel or long delay spreads. Note that simulating the channel in the time domain is typically significantly more computationally demanding that simulating the channel in the frequency domain.
+### class: sionna.channel.OFDMChannel(channel_model, resource_grid, add_awgn=True, normalize_channel=False, return_channel=False, dtype=tf.complex64, **kwargs)
+Generate channel frequency responses and apply them to channel inputs assuming an OFDM waveform with no ICI nor ISI.
+This class inherits from the Keras Layer class and can be used as layer in a Keras model.
+For each OFDM symbol
+s
+and subcarrier
+n
+, the channel output is computed as follows:
+y_{s,n} = \widehat{h}_{s, n} x_{s,n} + w_{s,n}
+where
+y_{s,n}
+is the channel output computed by this layer,
+\widehat{h}_{s, n}
+the frequency channel response,
+x_{s,n}
+the channel input x, and
+w_{s,n}
+the additive noise.
+For multiple-input multiple-output (MIMO) links, the channel output is computed for each antenna of each receiver and by summing over all the antennas of all transmitters.
+The channel frequency response for the
+s^{th}
+OFDM symbol and
+n^{th}
+subcarrier is computed from a given channel impulse response
+(a_{m}(t), \tau_{m}), 0 \leq m \leq M-1
+generated by the channel_model as follows:
+\widehat{h}_{s, n} = \sum_{m=0}^{M-1} a_{m}(s) e^{-j2\pi n \Delta_f \tau_{m}}
+where
+\Delta_f
+is the subcarrier spacing, and
+s
+is used as time step to indicate that the channel impulse response can change from one OFDM symbol to the next in the event of mobility, even if it is assumed static over the duration of an OFDM symbol.
+Parameters
+channel_model (ChannelModel object) – An instance of a ChannelModel object, such as RayleighBlockFading or UMi.
+resource_grid (ResourceGrid) – Resource grid
+add_awgn (bool) – If set to False, no white Gaussian noise is added. Defaults to True.
+normalize_channel (bool) – If set to True, the channel is normalized over the resource grid to ensure unit average energy per resource element. Defaults to False.
+return_channel (bool) – If set to True, the channel response is returned in addition to the channel output. Defaults to False.
+dtype (tf.DType) – Complex datatype to use for internal processing and output. Defaults to tf.complex64.
+Input
+(x, no) or x – Tuple or Tensor:
+x ([batch size, num_tx, num_tx_ant, num_ofdm_symbols, fft_size], tf.complex) – Channel inputs
+no (Scalar or Tensor, tf.float) – Scalar or tensor whose shape can be broadcast to the shape of the channel outputs: [batch size, num_rx, num_rx_ant, num_ofdm_symbols, fft_size]. Only required if add_awgn is set to True. The noise power no is per complex dimension. If no is a scalar, noise of the same variance will be added to the outputs. If no is a tensor, it must have a shape that can be broadcast to the shape of the channel outputs. This allows, e.g., adding noise of different variance to each example in a batch. If no has a lower rank than the channel outputs, then no will be broadcast to the shape of the channel outputs by adding dummy dimensions after the last axis.
+Output
+y ([batch size, num_rx, num_rx_ant, num_ofdm_symbols, fft_size], tf.complex) – Channel outputs
+h_freq ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_ofdm_symbols, fft_size], tf.complex) – (Optional) Channel frequency responses. Returned only if return_channel is set to True.

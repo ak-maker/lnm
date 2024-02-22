@@ -1,0 +1,90 @@
+### 1. INSTRUCTION:
+Create a GPU configuration by setting the environment variables for the selected GPU, suppressing TensorFlow warnings, and enabling memory growth.
+
+**ANSWER:**
+
+To create a GPU configuration that sets the environment variables for the selected GPU, suppresses TensorFlow warnings, and enables memory growth, you can follow these steps based on the provided context:
+
+1. Select the GPU number you want to use.
+2. Set the `CUDA_VISIBLE_DEVICES` environment variable to the selected GPU number. If you want to use the CPU instead, set it to an empty string.
+3. Set the `TF_CPP_MIN_LOG_LEVEL` environment variable to `'3'` to suppress TensorFlow warnings.
+4. Enable the memory growth for GPUs.
+5. Suppress TensorFlow logger warnings.
+
+Here is an example Python code snippet that accomplishes this:
+
+```python
+import os
+import tensorflow as tf
+
+# Step 1: Select the GPU number to use. To use the CPU, set gpu_num to ""
+gpu_num = "0"
+
+# Step 2: Set the CUDA_VISIBLE_DEVICES environment variable
+os.environ["CUDA_VISIBLE_DEVICES"] = gpu_num
+
+# Step 3: Set the TF_CPP_MIN_LOG_LEVEL environment variable
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+# Step 4: Enable memory growth for the GPUs. This needs to be done for just one GPU in this case.
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Only necessary if you want to use the GPU number specified by gpu_num and enable memory growth
+        tf.config.experimental.set_memory_growth(gpus[0], True)
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
+
+# Step 5: Suppress TensorFlow logger warnings
+tf.get_logger().setLevel('ERROR')
+
+# The rest of the TensorFlow code would go here
+```
+
+This code configures the environment for a TensorFlow session to use the specified GPU with memory growth enabled, and suppresses any TensorFlow warnings to make the output cleaner. Note that after setting memory growth, you shouldn't initialize any TensorFlow operations before calling `set_memory_growth`, as this method needs to be called at the start of the program.
+
+### 2. INSTRUCTION:
+Import the Sionna library and handle the ImportError by installing the Sionna package if it's not already installed, then retry the import.
+
+**ANSWER:**
+
+To import the Sionna library and handle an `ImportError` by installing the Sionna package if it's not already installed and retrying the import, you would write something like the following Python code:
+
+```python
+try:
+    import sionna
+except ImportError:
+    import os
+    os.system("pip install sionna")
+    import sionna
+```
+
+This code attempts to import the `sionna` library. If it's not available (`ImportError` is raised), it uses the `os.system` function to run the `pip install sionna` command to install the package. After the installation is presumably successful, it tries to import `sionna` again. 
+
+Please be aware that when working in environments like Google Colab, you might use their built-in functions, such as `!pip install sionna`, which is often preferred in Colab notebooks instead of `os.system`. But in a traditional Python script, `os.system` should work just fine. 
+
+In your given context, the missing `sionna` library is already being handled in this way, with the installation and re-import attempt placed within the `except` block to handle `ImportError`. This follows the recommended approach for dealing with potentially missing Python packages in an environment where you have the necessary permissions to perform installations.
+
+### 3. INSTRUCTION:
+Set a global random seed using TensorFlow to ensure reproducibility of results.
+
+**ANSWER:**
+
+To set a global random seed using TensorFlow to ensure reproducibility of results in the context provided, you can use the following line of code:
+
+```python
+import tensorflow as tf
+tf.random.set_seed(42) # You can choose any number as the seed value
+```
+
+This line sets the seed for TensorFlow's random number generators, ensuring that any subsequent operations that rely on random number generation (such as weight initialization in neural networks) will produce the same results each time the code is run. It's important to place this line at the beginning of your script, before initializing any variables or creating any TensorFlow models that might use random numbers.
+
+In the provided context, the line of code that sets the seed is already present:
+
+```python
+tf.random.set_seed(1) # Set global random seed for reproducibility
+```
+
+The seed is currently set to `1`, but you can change it to any integer value that you wish to use as your seed for reproducibility.
+

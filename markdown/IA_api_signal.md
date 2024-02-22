@@ -1,0 +1,423 @@
+### 1. INSTRUCTION:
+Explain how to instantiate a SincFilter with a specific span in symbols, samples per symbol, and apply a Hann window.
+
+**ANSWER:**
+
+To instantiate a `SincFilter` with a specific span in symbols, samples per symbol, and apply a Hann window, you will need to follow these steps using the `sionna.signal.SincFilter` class as defined in the given context:
+
+1. Define the span in symbols which measures the filter's span.
+2. Define the samples per symbol which dictates the oversampling factor.
+3. Choose to apply a Hann window by specifying `window="hann"`. If you prefer another type of windowing function (such as 'hamming' or 'blackman'), specify that instead.
+
+Here's an example of how you would write the code to create such a `SincFilter` instance:
+
+```python
+# Import the required module
+import sionna
+
+# Define your parameters
+span_in_symbols = 10  # replace with your specific span
+samples_per_symbol = 4  # replace with your specific samples per symbol ratio
+
+# Instantiate the SincFilter with a Hann window
+sinc_filter_with_hann = sionna.signal.SincFilter(span_in_symbols=span_in_symbols,
+                                                 samples_per_symbol=samples_per_symbol,
+                                                 window="hann")
+```
+
+With this `sinc_filter_with_hann` instance, you can now apply the filter to an input signal `x`. Just ensure that `x` is either a complex or float tensor, and is shaped correctly for the filter. If you want to normalize the filter to have unit power, you can leave the `normalize` parameter as its default value of `True`. If you do not wish to normalize, set `normalize=False`. 
+
+Remember, the filter is applied along the last dimension of the `x` tensor when you call the filter instance:
+
+```python
+# Assuming 'x' is your input signal as a TensorFlow tensor
+filtered_x = sinc_filter_with_hann(x)
+```
+
+The length of the output `filtered_x` will depend on the padding mode you choose when applying the filter. By default, if you do not set the `padding` parameter, it will use the `"full"` padding mode.
+
+### 2. INSTRUCTION:
+Import the `QAMSource` and `RootRaisedCosineFilter` classes from the Sionna package in Python to start working with QAM signal sequences.
+
+**ANSWER:**
+
+To import the `QAMSource` and `RootRaisedCosineFilter` classes from the Sionna package in Python, you can use the following Python code:
+
+```python
+from sionna.mapping import QAMSource
+from sionna.filtering import RootRaisedCosineFilter
+```
+
+Keep in mind that you might need to adjust the import statements if the package structure has changed since my knowledge cutoff date or based on the install location and environment settings of Sionna. Make sure that Sionna is installed in your Python environment before running this code.
+
+If you encounter an ImportError, it could mean that the import paths have changed, or that the Sionna package is not properly installed. In that case, double-check the Sionna documentation for the correct import paths or troubleshoot the installation.
+
+### 3. INSTRUCTION:
+Initialize a batch of QAM-16 sequences with a specific `batch_size` and `num_symbols` for your dataset.
+
+**ANSWER:**
+
+To initialize a batch of QAM-16 sequences with a specific `batch_size` and `num_symbols`, you can follow the instructions below. Notice that in this context, the `QAMSource` is likely coming from a simulation library such as Sionna, and the snippet provided suggests a procedure for generating QAM-16 modulated signals, up-sampling, filtering, and down-sampling them. 
+
+Here is how you would initialize a batch:
+
+```python
+# Import necessary modules, assuming a library such as sionna is being used
+# If sionna is not already imported, you need to import required classes/functions before this code block
+# from sionna import QAMSource, RootRaisedCosineFilter, Upsampling, Downsampling  # Hypothetical import statement
+
+# Define the batch size and number of symbols for your QAM-16 dataset
+batch_size = 128        # Replace with the desired batch size
+num_symbols = 1000      # Replace with the desired number of symbols
+
+# Assuming QAM-16, we have 4 bits per symbol
+num_bits_per_symbol = 4
+
+# Initialize a QAM-16 source generating a batch of sequences
+# The QAMSource class is typically used to generate batches of symbols
+qam_source = QAMSource(num_bits_per_symbol)
+x = qam_source([batch_size, num_symbols])
+
+# The rest of the sequence processing (up-sampling, filtering, down-sampling)
+# is already provided in the context snippet and can be followed
+# as required by a particular simulation or signal processing workflow.
+```
+
+Note that `QAMSource` is a placeholder for whatever the actual QAM source generator class/function your context is referring to; if you are using a specific library, ensure to use the correct class/function from that library.
+
+This code snippet provides the means to initialize a batch of QAM-16 sequences, but it is important to follow the context and libraries you are using in your project, as well as initialize any parameters or classes that are necessary but not explicitly mentioned here (such as necessary imports or further configuration of `QAMSource`).
+
+### 4. INSTRUCTION:
+Using Sionna, define the parameters `beta`, `span_in_symbols`, and `samples_per_symbol` to create a root-raised-cosine filter with a Hann window.
+
+**ANSWER:**
+
+In the provided context, you are given instructions for creating a root-raised-cosine (RRC) filter with Hann windowing in Sionna. Based on the code snippet in the context, here are the parameters for such a filter:
+
+- `beta`: This parameter represents the roll-off factor of the RRC filter. In the code snippet, it is set to 0.22. This value controls the bandwidth of the filter.
+- `span_in_symbols`: This defines the filter span in terms of the number of symbols. In the code snippet, it is set to 32. Essentially, this value determines the length of the filter in the time domain.
+- `samples_per_symbol`: This is the number of samples per symbol, which corresponds to the oversampling factor. In the code snippet, it is set to 4. This value is important for determining the sampling rate of the signal after it has been filtered.
+
+The given code snippet for creating a root-raised-cosine filter with a Hann window is as follows:
+
+```python
+# Create a root-raised-cosine filter with Hann windowing
+beta = 0.22 # Roll-off factor
+span_in_symbols = 32 # Filter span in symbols
+samples_per_symbol = 4 # Number of samples per symbol, i.e., the oversampling factor
+
+rrcf_hann = RootRaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window="hann")
+```
+
+To utilize this in your context, you would need to have the `RootRaisedCosineFilter` available, presumably as part of Sionna's signal processing module. Ensure that the Sionna library is properly imported and that you have access to the correct functions and classes needed to create and apply the root-raised-cosine filter.
+
+### 5. INSTRUCTION:
+Create an instance of the `Upsampling` layer in Sionna with the correct `samples_per_symbol` to upsample your batch of QAM symbols.
+
+**ANSWER:**
+
+Based on the context provided, which includes a code snippet for signal processing using the Sionna library, the instruction is asking to create an instance of the `Upsampling` layer with the correct `samples_per_symbol` parameter value. In the code snippet provided, the `samples_per_symbol` has been defined with a value of 4.
+
+Here's how you would create an instance of the `Upsampling` layer using the `samples_per_symbol` defined earlier:
+
+```python
+from sionna.signal import Upsampling
+
+# Define the number of samples per symbol as provided in the context
+samples_per_symbol = 4
+
+# Create an instance of the Upsampling layer
+us = Upsampling(samples_per_symbol)
+
+# The variable 'us' now holds the instance of the Upsampling layer and can be used
+# to upsample a batch of QAM symbols as required in your processing pipeline.
+```
+
+By doing this, you have instantiated an `Upsampling` layer from the Sionna library that can be used to upsample the QAM symbols in your batch by the specified factor of 4 samples per symbol.
+
+### 6. INSTRUCTION:
+Apply the root-raised-cosine filter you created to the upsampled QAM signal.
+
+**ANSWER:**
+
+To apply the root-raised-cosine (RRC) filter you've already created to the upsampled QAM signal, you can follow the steps given in the context. The context provides a straightforward procedure involving the creation of QAM baseband signals, upsampling them, and then applying the RRC filter to the upsampled signal.
+
+Here are the steps you would take, assuming you have already created a root-raised-cosine filter `rrcf_hann` and upsampled your QAM signal `x_us`:
+
+1. Take the upsampled QAM signal `x_us`.
+2. Apply the root-raised-cosine filter `rrcf_hann` to it using the function call pattern provided.
+3. The resulting signal `x_rrcf` is the filtered version of your upsampled QAM signal.
+
+In code, this would look like the following snippet, where `x_us` is the upsampled QAM signal:
+
+```python
+# Apply the root-raised-cosine filter to the upsampled QAM signal.
+x_rrcf = rrcf_hann(x_us)
+```
+
+This filtered signal `x_rrcf` can now be transmitted over a channel, and at the receiver, the matching process will follow to recover the original baseband symbols.
+
+### 7. INSTRUCTION:
+Write Python code to instantiate a `Downsampling` layer in Sionna in preparation for symbol sequence recovery.
+
+**ANSWER:**
+
+Based on the given context from the Sionna library, you are required to instantiate a `Downsampling` layer which is typically used to reduce the sampling rate of a signal. The context suggests how to perform upsampling, filtering, and recovery of a baseband symbol sequence after being transmitted over a channel. To recover the original symbols at the receiver side, you need to downsample the signal after applying the matched filter (root-raised-cosine filter in the example). 
+
+The `Downsampling` layer can be instantiated using the provided `samples_per_symbol` which dictates the factor by which the signal needs to be downsampled. Also, they provide the filter length (`rrcf_hann.length-1`) and the number of symbols (`num_symbols`) expected after downsampling.
+
+Here's how you would write the Python code snippet to instantiate a `Downsampling` layer in Sionna:
+
+```python
+from sionna.ofdm import Downsampling
+
+# Assuming you have the following variables already defined (from the context given)
+# samples_per_symbol (the oversampling factor)
+# rrcf_hann.length (the length of the filter, derived from the root-raised-cosine filter instance)
+# num_symbols (the number of baseband symbols)
+
+# Instantiate a downsampling layer
+ds = Downsampling(samples_per_symbol, rrcf_hann.length-1, num_symbols)
+```
+
+After this instantiation, you could use `ds` to downsample a signal that has passed through a matched filter (`rrcf_hann`) as indicated in the context:
+
+```python
+# Apply the matched filter to the received signal (x_rrcf is assumed to be the received signal)
+x_mf = rrcf_hann(x_rrcf)
+
+# Recover the transmitted symbol sequence by downsampling
+x_hat = ds(x_mf)
+```
+
+Remember that the exact instantiation might differ based on the actual Sionna API and the context of the rest of your code. The above code is written based on the provided context and assumes that certain variables like `rrcf_hann`, `samples_per_symbol`, and `num_symbols` have been defined elsewhere in your code.
+
+### 8. INSTRUCTION:
+Use the matched filter approach to filter the upsampled QAM signal with the root-raised-cosine filter before downsampling.
+
+**ANSWER:**
+
+Based on the context provided, here is a step-by-step instruction to filter the upsampled Quadrature Amplitude Modulation (QAM) signal with the root-raised-cosine (RRC) filter before downsampling using a matched filter approach:
+
+1. **Create QAM Symbol Sequence**: Generate a batch of QAM symbol sequences using the `QAMSource()` method specifying number of bits per symbol. This will be your original baseband signal `x`.
+
+```python
+batch_size = 128
+num_symbols = 1000
+num_bits_per_symbol = 4
+x = QAMSource(num_bits_per_symbol)([batch_size, num_symbols])
+```
+
+2. **Define Root-Raised-Cosine Filter**: Create a root-raised-cosine filter using the `RootRaisedCosineFilter()` with the desired roll-off factor, filter span in symbols, number of samples per symbol, and window type.
+
+```python
+beta = 0.22  # Roll-off factor
+span_in_symbols = 32  # Filter span in symbols
+samples_per_symbol = 4  # Oversampling factor
+rrcf_hann = RootRaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window="hann")
+```
+
+3. **Upsample Baseband Signal**: Upsample the baseband signal `x` using the `Upsampling()` layer. The upsampling factor should match the number of samples per symbol defined in your RRC filter.
+
+```python
+us = Upsampling(samples_per_symbol)
+x_us = us(x)
+```
+
+4. **Filter Upsampled Signal**: Apply the RRC filter that you defined on the upsampled signal `x_us`. This is the pulse shaping step before transmission.
+
+```python
+x_rrcf = rrcf_hann(x_us)
+```
+
+5. **Apply Matched Filter**: On the receiver side, to recover the transmitted symbols, use the same RRC filter to apply the matched filter approach by processing the received signal `x_rrcf`.
+
+```python
+x_mf = rrcf_hann(x_rrcf)
+```
+
+6. **Downsample**: Finally, downsample the output of the matched filter to recover the baseband symbol sequence. Use the `Downsampling()` layer with parameters that align with your filter and data structure.
+
+```python
+ds = Downsampling(samples_per_symbol, rrcf_hann.length-1, num_symbols)
+x_hat = ds(x_mf)
+```
+
+By following these steps, you should be able to properly filter the upsampled QAM signal with the root-raised-cosine filter using the matched filter approach before downsampling to recover the transmitted symbol sequence `x_hat`.
+
+### 9. INSTRUCTION:
+Execute the downsampling process in Sionna to recover the transmitted QAM symbol sequence from the filtered signal.
+
+**ANSWER:**
+
+Based on the provided context, the steps to execute the downsampling process in Sionna to recover the transmitted QAM symbol sequence from the filtered signal can be summarized as follows:
+
+1. Instantiate the matched filter using the RootRaisedCosineFilter with the appropriate roll-off factor, filter span, and samples per symbol. If you have already created the `rrcf_hann` filter for the transmitter side, it should also be used on the receiver side as a matched filter.
+
+2. Apply the matched filter to the received upsampled and subsequently filtered signal `x_rrcf` by passing it through the `rrcf_hann` filter.
+
+3. Instantiate a Downsampling layer with the `samples_per_symbol` parameter that matches the oversampling factor used during the upsampling process, and other parameters like the filter length and the number of symbols.
+
+4. Apply the downsampling layer to the output of the matched filter to recover the transmitted symbol sequence `x_hat`.
+
+Here is the complete downsampling procedure represented in code, based on the context provided:
+
+```python
+# Assume the receiver has received a signal x_rrcf, 
+# which is the upsampled and filtered transmitted signal.
+
+# Instantiate matched filter (same as the transmitter filter)
+beta = 0.22  # Provided by context
+span_in_symbols = 32  # Provided by context
+samples_per_symbol = 4  # Provided by context
+rrcf_hann = RootRaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window="hann")
+
+# Apply the matched filter to the received signal
+x_mf = rrcf_hann(x_rrcf)
+
+# Instantiate the Downsampling layer (matched to the transmitter's upsampling rate)
+num_symbols = 1000  # Provided by context, adjust as necessary for your specific scenario
+ds = Downsampling(samples_per_symbol, rrcf_hann.length-1, num_symbols)
+
+# Recover the transmitted symbol sequence
+x_hat = ds(x_mf)
+
+# x_hat now contains the downsampled QAM symbol sequence,
+# which should be a close representation of the original transmitted sequence.
+```
+
+Please note that the actual values for `num_symbols` and other parameters must match those used in the specific transmission scenario. In a practical application, additional steps for synchronization, equalization, and error correction might be necessary to accurately recover the transmitted data, depending on the channel impairments and system design.
+
+### 10. INSTRUCTION:
+Calculate the empirical ACLR of a signal using the `empirical_aclr` function provided by Sionna, with the correct input parameters including the oversampling factor and in-band frequency range.
+
+**ANSWER:**
+
+To calculate the empirical ACLR of a signal `x` using the utility function `empirical_aclr` from the Sionna library, you need to ensure that the correct input parameters are provided. Based on the provided context, we have information about the oversampling factor used to upsample the signal with the `Upsampling` layer and the in-band frequency range is provided as the default values for `f_min` and `f_max`.
+
+To proceed, ensure you have the signal `x` ready—this should be the filtered signal that you want to analyze for ACLR. The oversampling factor has been set to 4 in the context provided during the generation of the signal (`samples_per_symbol = 4`).
+
+Here's a step-by-step guide to compute the ACLR:
+
+1. Verify that you have the signal `x` for which you want to compute ACLR (it could be `x_rrcf` after upsampling and filtering).
+
+2. Identify the oversampling factor used to upsample `x`, which is 4 (from `samples_per_symbol = 4`).
+
+3. Use the default values for the in-band frequency range, which are `f_min = -0.5` and `f_max = 0.5`, unless you have a specific in-band range to consider.
+
+4. Call the `empirical_aclr` function with `x` and the identified parameters.
+
+Here is what the code would look like in Python assuming `x_rrcf` is the signal, and we are using the oversampling factor of 4:
+
+```python
+from sionna.signal import empirical_aclr
+
+# Assuming x_rrcf is the signal for which you want to calculate the ACLR
+signal_to_analyze = x_rrcf
+
+# The oversampling factor used in the generation of the signal
+oversampling_factor = 4
+
+# Compute empirical ACLR
+aclr = empirical_aclr(x=signal_to_analyze, oversampling=oversampling_factor)
+
+print(f"The empirical ACLR of the signal is {aclr}.")
+```
+
+Please note that the provided context does not explicitly state which signal to analyze for ACLR (`x`, `x_us`, `x_rrcf`, or `x_hat`). You typically want to use the signal after it has been upsampled and filtered (`x_rrcf` in the context), which is what we used in the example above. However, be sure to select the correct signal according to your own scenario.
+
+If the in-band frequency range differs from the default values, make sure to adjust the `f_min` and `f_max` parameters when calling `empirical_aclr`.
+
+### 11. INSTRUCTION:
+Compare the ACLR calculation with different `oversampling` factors to observe its impact on the accuracy of the ACLR of a signal in Sionna.
+
+**ANSWER:**
+
+To compare the ACLR calculation with different `oversampling` factors, one should follow these general steps using Sionna, a library used for simulating communication signals:
+
+1. **Generate Baseband Symbols:**
+    Use the provided utility for generating QAM modulated baseband symbols. In the context, a QAMSource with `num_bits_per_symbol` is used to generate a batch of QAM-16 sequences.
+
+2. **Pulse Shaping and Oversampling:**
+    The baseband QAM symbols are filtered with a root-raised-cosine filter with a specific roll-off factor (`beta`). The `samples_per_symbol` defines the oversampling factor for this pulse shaping filter. Here, a Hann window is used for the filter.
+
+3. **Adjust Oversampling Factor:**
+    Change the `samples_per_symbol` value in the `RootRaisedCosineFilter` and `Upsampling` layers to test different oversampling factors. For instance, you may try values like 2, 4, 8, etc., to see the effect of different oversampling rates.
+
+4. **Signal Upsampling:**
+    Perform signal upsampling using the `Upsampling` layer to match the number of samples after filtering to the desired oversampling rate.
+
+5. **Filter Signal:**
+    Pass the upsampled signal sequence through the root-raised-cosine filter to obtain the pulse-shaped signal.
+
+6. **ACLR Computation:**
+    Compute the empirical ACLR of the signal using the `empirical_aclr` utility function provided by Sionna. This function computes the ratio of the power leaked into the adjacent channels versus the power within the intended channel bandwidth.
+
+7. **Vary Oversampling and Record ACLR:**
+    Repeat the ACLR calculation by varying the `oversampling` argument in the `empirical_aclr` function. Take note of the ACLR values obtained with each oversampling factor.
+
+8. **Compare and Analyze:**
+    Analyze how the ACLR values change with different oversampling factors. A higher oversampling rate might improve the ACLR accuracy by providing a better representation of the signal's spectral characteristics. The ACLR could worsen if the oversampling is not sufficiently high, as aliasing effects might occur, or the PSD estimation might become less accurate.
+
+9. **Conclusions:**
+    Present your findings on the relationship between the oversampling factor and the ACLR accuracy. Higher oversampling typically requires more computational resources, so it's important to balance between accuracy and complexity.
+
+Remember, it's critical to ensure the same signal conditions across each ACLR computation to have a fair comparison. Only the `oversampling` parameter should change for the purpose of this investigation.
+
+### 12. INSTRUCTION:
+Integrate the ACLR computation into your dataset generation pipeline, ensuring it is executed after generating and processing signals through upsampling, filtering, and downsampling.
+
+**ANSWER:**
+
+To integrate the computation of ACLR (Adjacent Channel Leakage Ratio) into your dataset generation pipeline, you should perform the ACLR computation after the steps for generating and processing the signals. These steps typically include: generating the signal, upsampling, filtering, possibly some signal processing, and finally downsampling.
+
+Here's a step-by-step guide on how to integrate the ACLR computation into the pipeline based on the given context:
+
+1. Generate the baseband signal modulated with QAM symbols.
+2. Upsample the baseband signal.
+3. Filter the upsampled signal using a root-raised-cosine filter with Hann windowing.
+4. (Any additional signal processing if necessary.)
+5. Downsample the signal to simulate the actual sampling rate seen at the receiver.
+6. Compute the ACLR for the downsampled signal.
+
+Based on the provided context, here's how you could integrate these steps into your dataset generation pipeline in code:
+
+```python
+# Assume all relevant libraries and functions such as QAMSource, RootRaisedCosineFilter,
+# Upsampling, Downsampling, and sionna.signal.empirical_aclr are already imported.
+
+# Generate a batch of QAM-modulated baseband signals
+batch_size = 128
+num_symbols = 1000
+num_bits_per_symbol = 4
+x = QAMSource(num_bits_per_symbol)([batch_size, num_symbols])
+
+# Define parameters for upsampling and filtering
+beta = 0.22  # Roll-off factor
+span_in_symbols = 32  # Filter span in symbols
+samples_per_symbol = 4  # Number of samples per symbol, i.e., the oversampling factor
+window_type = "hann"
+
+# Create and apply upsampling and root-raised-cosine filter with Hann windowing
+rrcf_hann = RootRaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window=window_type)
+us = Upsampling(samples_per_symbol)
+x_us = us(x)
+x_rrcf = rrcf_hann(x_us)
+
+# (Any additional signal processing if necessary)
+
+# Downsample the filtered signal
+ds = Downsampling(samples_per_symbol, rrcf_hann.length - 1, num_symbols)
+x_downsampled = ds(x_rrcf)
+
+# Compute the ACLR for the downsampled signal
+aclr = sionna.signal.empirical_aclr(x_downsampled, oversampling=samples_per_symbol)
+
+# Now aclr contains the ACLR for each example in your batch. You can integrate this information
+# into your dataset generation pipeline as needed.
+```
+
+Make sure to adjust the `oversampling` parameter in the `empirical_aclr` function to match the actual oversampling rate of the signal.
+
+Remember that the order of these steps is important, particularly when dealing with a pipeline that processes signals. Each step may affect the signal's characteristics, which in turn can affect the ACLR calculation. Therefore, the ACLR should be calculated once the signal has been processed into the form that resembles the signal that would be transmitted through the channel.
+

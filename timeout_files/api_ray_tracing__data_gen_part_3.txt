@@ -1,0 +1,342 @@
+# Ray Tracing
+
+## Paths
+### class: sionna.rt.Paths
+## Coverage Maps
+### class: sionna.rt.CoverageMap
+## Cameras
+### class: sionna.rt.Camera(name, position, orientation=[0., 0., 0.], look_at=None)
+## Scene Objects
+### class: sionna.rt.SceneObject
+
+# Ray Tracing
+
+This module provides a differentiable ray tracer for radio propagation modeling. The best way to get started is by having a look at the Sionna Ray Tracing Tutorial. The Primer on Electromagnetics provides useful background knowledge and various definitions that are used throughout the API documentation.
+
+The most important component of the ray tracer is the Scene. It has methods for the computation of propagation Paths (compute_paths()) and CoverageMap (coverage_map()). Sionna has several integrated Example Scenes that you can use for your own experiments. In this video, we explain how you can create your own scenes using OpenStreetMap and Blender. You can preview a scene within a Jupyter notebook (preview()) or render it to a file from the viewpoint of a camera (render() or render_to_file()).
+
+Propagation Paths can be transformed into time-varying channel impulse responses (CIRs) via cir(). The CIRs can then be used for link-level simulations in Sionna via the functions cir_to_time_channel() or cir_to_ofdm_channel(). Alternatively, you can create a dataset of CIRs that can be used by a channel model with the help of CIRDataset.
+
+The paper Sionna RT: Differentiable Ray Tracing for Radio Propagation Modeling shows how differentiable ray tracing can be used for various optimization tasks. The related notebooks can be a good starting point for your own experiments.
+
+### class: sionna.rt.Paths
+Stores the simulated propagation paths
+Paths are generated for the loaded scene using compute_paths(). Please refer to the documentation of this function for further details. These paths can then be used to compute channel impulse responses:
+paths = scene.compute_paths()
+a, tau = paths.cir()
+where scene is the Scene loaded using load_scene().
+property
+a
+Passband channel coefficients
+a_i
+of each path as defined in (26).
+Type
+[batch_size, num_rx, num_rx_ant, num_tx, num_tx_ant, max_num_paths, num_time_steps], tf.complex
+apply_doppler(sampling_frequency, num_time_steps, tx_velocities=(0.0, 0.0, 0.0), rx_velocities=(0.0, 0.0, 0.0))[source]
+Apply Doppler shifts corresponding to input transmitters and receivers velocities.
+This function replaces the last dimension of the tensor storing the paths coefficients a, which stores the the temporal evolution of the channel, with a dimension of size num_time_steps computed according to the input velocities.
+Time evolution of the channel coefficients is simulated by computing the Doppler shift due to movements of the transmitter and receiver. If we denote by
+\mathbf{v}_{\text{T}}\in\mathbb{R}^3
+and
+\mathbf{v}_{\text{R}}\in\mathbb{R}^3
+the velocity vectors of the transmitter and receiver, respectively, the Doppler shifts are computed as
+\begin{split}f_{\text{T}, i} &= \frac{\hat{\mathbf{r}}(\theta_{\text{T},i}, \varphi_{\text{T},i})^\mathsf{T}\mathbf{v}_{\text{T}}}{\lambda}\qquad \text{[Hz]}\\
+f_{\text{R}, i} &= \frac{\hat{\mathbf{r}}(\theta_{\text{R},i}, \varphi_{\text{R},i})^\mathsf{T}\mathbf{v}_{\text{R}}}{\lambda}\qquad \text{[Hz]}\end{split}
+for an arbitrary path
+i
+, where
+(\theta_{\text{T},i}, \varphi_{\text{T},i})
+are the AoDs,
+(\theta_{\text{R},i}, \varphi_{\text{R},i})
+are the AoAs, and
+\lambda
+is the wavelength. This leads to the time-dependent path coefficient
+a_i(t) = a_i e^{j2\pi(f_{\text{T}, i}+f_{\text{R}, i})t}.
+.
+Note that this model is only valid as long as the AoDs, AoAs, and path delay do not change.
+When this function is called multiple times, it overwrites the previous time steps dimension.
+Input
+sampling_frequency (float) – Frequency [Hz] at which the channel impulse response is sampled
+num_time_steps (int) – Number of time steps.
+tx_velocities ([batch_size, num_tx, 3] or broadcastable, tf.float | None) – Velocity vectors
+(v_\text{x}, v_\text{y}, v_\text{z})
+of all transmitters [m/s]. Defaults to [0,0,0].
+rx_velocities ([batch_size, num_tx, 3] or broadcastable, tf.float | None) – Velocity vectors
+(v_\text{x}, v_\text{y}, v_\text{z})
+of all receivers [m/s]. Defaults to [0,0,0].
+cir(los=True, reflection=True, diffraction=True, scattering=True, num_paths=None)[source]
+Returns the baseband equivalent channel impulse response (28) which can be used for link simulations by other Sionna components.
+The baseband equivalent channel coefficients
+a^{\text{b}}_{i}
+are computed as :
+a^{\text{b}}_{i} = a_{i} e^{-j2 \pi f \tau_{i}}
+where
+i
+is the index of an arbitrary path,
+a_{i}
+is the passband path coefficient (a),
+\tau_{i}
+is the path delay (tau), and
+f
+is the carrier frequency.
+Note: For the paths of a given type to be returned (LoS, reflection, etc.), they must have been previously computed by compute_paths(), i.e., the corresponding flags must have been set to True.
+Input
+los (bool) – If set to False, LoS paths are not returned. Defaults to True.
+reflection (bool) – If set to False, specular paths are not returned. Defaults to True.
+diffraction (bool) – If set to False, diffracted paths are not returned. Defaults to True.
+scattering (bool) – If set to False, scattered paths are not returned. Defaults to True.
+num_paths (int or None) – All CIRs are either zero-padded or cropped to the largest num_paths paths. Defaults to None which means that no padding or cropping is done.
+Output
+a ([batch_size, num_rx, num_rx_ant, num_tx, num_tx_ant, max_num_paths, num_time_steps], tf.complex) – Path coefficients
+tau ([batch_size, num_rx, num_rx_ant, num_tx, num_tx_ant, max_num_paths] or [batch_size, num_rx, num_tx, max_num_paths], tf.float) – Path delays
+export(filename)[source]
+Saves the paths as an OBJ file for visualisation, e.g., in Blender
+Input
+filename (str) – Path and name of the file
+from_dict(data_dict)[source]
+Set the paths from a dictionnary which values are tensors
+The format of the dictionnary is expected to be the same as the one returned by to_dict().
+Input
+data_dict (dict)
+property
+mask
+Set to False for non-existent paths. When there are multiple transmitters or receivers, path counts may vary between links. This is used to identify non-existent paths. For such paths, the channel coefficient is set to 0 and the delay to -1.
+Type
+[batch_size, num_rx, num_rx_ant, num_tx, num_tx_ant, max_num_paths] or [batch_size, num_rx, num_tx, max_num_paths], tf.bool
+property
+normalize_delays
+Set to True to normalize path delays such that the first path between any pair of antennas of a transmitter and receiver arrives at tau = 0. Defaults to True.
+Type
+bool
+property
+phi_r
+Azimuth angles of arrival [rad]
+Type
+[batch_size, num_rx, num_rx_ant, num_tx, num_tx_ant, max_num_paths] or [batch_size, num_rx, num_tx, max_num_paths], tf.float
+property
+phi_t
+Azimuth angles of departure [rad]
+Type
+[batch_size, num_rx, num_rx_ant, num_tx, num_tx_ant, max_num_paths] or [batch_size, num_rx, num_tx, max_num_paths], tf.float
+property
+reverse_direction
+If set to True, swaps receivers and transmitters
+Type
+bool
+property
+tau
+Propagation delay
+\tau_i
+[s] of each path as defined in (26).
+Type
+[batch_size, num_rx, num_rx_ant, num_tx, num_tx_ant, max_num_paths] or [batch_size, num_rx, num_tx, max_num_paths], tf.float
+property
+theta_r
+Zenith angles of arrival [rad]
+Type
+[batch_size, num_rx, num_rx_ant, num_tx, num_tx_ant, max_num_paths] or [batch_size, num_rx, num_tx, max_num_paths], tf.float
+property
+theta_t
+Zenith angles of departure [rad]
+Type
+[batch_size, num_rx, num_rx_ant, num_tx, num_tx_ant, max_num_paths] or [batch_size, num_rx, num_tx, max_num_paths], tf.float
+to_dict()[source]
+Returns the properties of the paths as a dictionnary which values are tensors
+Output
+dict
+property
+types
+Type of the paths:
+0 : LoS
+1 : Reflected
+2 : Diffracted
+3 : Scattered
+Type
+[batch_size, max_num_paths], tf.int
+## Coverage Maps
+A coverage map describes the received power from a specific transmitter at every point on a plane. In other words, for a given transmitter, it associates every point on a surface with the power that a receiver with a specific orientation would observe at this point. A coverage map is not uniquely defined as it depends on the transmit and receive arrays and their respective antenna patterns, the transmitter and receiver orientations, as well as transmit precoding and receive combining vectors. Moreover, a coverage map is not continuous but discrete because the plane needs to be quantized into small rectangular bins.
+In Sionna, coverage maps are computed with the help of the function coverage_map() which returns an instance of CoverageMap. They can be visualized by providing them either as arguments to the functions render(), render_to_file(), and preview(), or by using the class method show().
+A very useful feature is sample_positions() which allows sampling of random positions within the scene that have sufficient coverage from a specific transmitter. This feature is used in the Sionna Ray Tracing Tutorial to generate a dataset of channel impulse responses for link-level simulations.
+### class: sionna.rt.CoverageMap
+Stores the simulated coverage maps
+A coverage map is generated for the loaded scene for every transmitter using coverage_map(). Please refer to the documentation of this function for further details.
+An instance of this class can be indexed like a tensor of rank three with shape [num_tx, num_cells_y, num_cells_x], i.e.:
+cm = scene.coverage_map()
+print(cm[0])      # prints the coverage map for transmitter 0
+print(cm[0,1,2])  # prints the value of the cell (1,2) for transmitter 0
+where scene is the Scene loaded using load_scene().
+Example
+import sionna
+from sionna.rt import load_scene, PlanarArray, Transmitter, Receiver
+scene = load_scene(sionna.rt.scene.munich)
+
+# Configure antenna array for all transmitters
+scene.tx_array = PlanarArray(num_rows=8,
+                          num_cols=2,
+                          vertical_spacing=0.7,
+                          horizontal_spacing=0.5,
+                          pattern="tr38901",
+                          polarization="VH")
+
+# Configure antenna array for all receivers
+scene.rx_array = PlanarArray(num_rows=1,
+                          num_cols=1,
+                          vertical_spacing=0.5,
+                          horizontal_spacing=0.5,
+                          pattern="dipole",
+                          polarization="cross")
+# Add a transmitters
+tx = Transmitter(name="tx",
+              position=[8.5,21,30],
+              orientation=[0,0,0])
+scene.add(tx)
+tx.look_at([40,80,1.5])
+
+# Compute coverage map
+cm = scene.coverage_map(max_depth=8)
+
+# Show coverage map
+cm.show()
+as_tensor()[source]
+Returns the coverage map as a tensor
+Output
+[num_tx, num_cells_y, num_cells_x], tf.float – The coverage map as a tensor
+property
+cell_centers
+Get the positions of the centers of the cells in the global coordinate system
+Type
+[num_cells_y, num_cells_x, 3], tf.float
+property
+cell_size
+Get the resolution of the coverage map, i.e., width (in the local X direction) and height (in the local Y direction) in of the cells of the coverage map
+Type
+[2], tf.float
+property
+center
+Get the center of the coverage map
+Type
+[3], tf.float
+property
+num_cells_x
+Get the number of cells along the local X-axis
+Type
+int
+property
+num_cells_y
+Get the number of cells along the local Y-axis
+Type
+int
+property
+num_tx
+Get the number of transmitters
+Type
+int
+property
+orientation
+Get the orientation of the coverage map
+Type
+[3], tf.float
+sample_positions(batch_size, tx=0, min_gain_db=None, max_gain_db=None, min_dist=None, max_dist=None, center_pos=False)[source]
+Sample random user positions from a coverage map
+For a given coverage map, batch_size random positions are sampled such that the expected path gain of this position is larger than a given threshold min_gain_db or smaller than max_gain_db, respectively. Similarly, min_dist and max_dist define the minimum and maximum distance of the random positions to the transmitter tx.
+Note that due to the quantization of the coverage map into cells it is not guaranteed that all above parameters are exactly fulfilled for a returned position. This stems from the fact that every individual cell of the coverage map describes the expected average behavior of the surface within this cell. For instance, it may happen that half of the selected cell is shadowed and, thus, no path to the transmitter exists but the average path gain is still larger than the given threshold. Please use center_pos = True to sample only positions from the cell centers.
+The above figure shows an example for random positions between 220m and 250m from the transmitter and a max_gain_db of -100 dB. Keep in mind that the transmitter can have a different height than the coverage map which also contributes to this distance. For example if the transmitter is located 20m above the surface of the coverage map and a min_dist of 20m is selected, also positions directly below the transmitter are sampled.
+Input
+batch_size (int) – Number of returned random positions
+min_gain_db (float | None) – Minimum path gain [dB]. Positions are only sampled from cells where the path gain is larger or equal to this value. Ignored if None. Defaults to None.
+max_gain_db (float | None) – Maximum path gain [dB]. Positions are only sampled from cells where the path gain is smaller or equal to this value. Ignored if None. Defaults to None.
+min_dist (float | None) – Minimum distance [m] from transmitter for all random positions. Ignored if None. Defaults to None.
+max_dist (float | None) – Maximum distance [m] from transmitter for all random positions. Ignored if None. Defaults to None.
+tx (int | str) – Index or name of the transmitter from whose coverage map positions are sampled
+center_pos (bool) – If True, all returned positions are sampled from the cell center (i.e., the grid of the coverage map). Otherwise, the positions are randomly drawn from the surface of the cell. Defaults to False.
+Output
+[batch_size, 3], tf.float – Random positions
+(x,y,z)
+[m] that are in cells fulfilling the above constraints w.r.t. distance and path gain
+show(tx=0, vmin=None, vmax=None, show_tx=True)[source]
+Visualizes a coverage map
+The position of the transmitter is indicated by a red “+” marker.
+Input
+tx (int | str) – Index or name of the transmitter for which to show the coverage map Defaults to 0.
+vmin,vmax (float | None) – Define the range of path gains that the colormap covers. If set to None, then covers the complete range. Defaults to None.
+show_tx (bool) – If set to True, then the position of the transmitter is shown. Defaults to True.
+Output
+Figure – Figure showing the coverage map
+property
+size
+Get the size of the coverage map
+Type
+[2], tf.float
+## Cameras
+A Camera defines a position and view direction for rendering the scene.
+The cameras property of the Scene list all the cameras currently available for rendering. Cameras can be either defined through the scene file or instantiated using the API. The following code snippet shows how to load a scene and list the available cameras:
+scene = load_scene(sionna.rt.scene.munich)
+print(scene.cameras)
+scene.render("scene-cam-0") # Use the first camera of the scene for rendering
+A new camera can be instantiated as follows:
+cam = Camera("mycam", position=[200., 0.0, 50.])
+scene.add(cam)
+cam.look_at([0.0,0.0,0.0])
+scene.render(cam) # Render using the Camera instance
+scene.render("mycam") # or using the name of the camera
+### class: sionna.rt.Camera(name, position, orientation=[0., 0., 0.], look_at=None)
+A camera defines a position and view direction for rendering the scene.
+In its local coordinate system, a camera looks toward the positive X-axis with the positive Z-axis being the upward direction.
+Input
+name (str) – Name. Cannot be “preview”, as it is reserved for the viewpoint of the interactive viewer.
+position ([3], float) – Position
+(x,y,z)
+[m] as three-dimensional vector
+orientation ([3], float) – Orientation
+(\alpha, \beta, \gamma)
+specified through three angles corresponding to a 3D rotation as defined in (3). This parameter is ignored if look_at is not None. Defaults to [0,0,0].
+look_at ([3], float | Transmitter | Receiver | Camera | None) – A position or instance of Transmitter, Receiver, or Camera to look at. If set to None, then orientation is used to orientate the camera.
+look_at(target)[source]
+Sets the orientation so that the camera looks at a position, radio device, or another camera.
+Given a point
+\mathbf{x}\in\mathbb{R}^3
+with spherical angles
+\theta
+and
+\varphi
+, the orientation of the camera will be set equal to
+(\varphi, \frac{\pi}{2}-\theta, 0.0)
+.
+Input
+target ([3], float | Transmitter | Receiver | Camera | str) – A position or the name or instance of a Transmitter, Receiver, or Camera in the scene to look at.
+property
+orientation
+Get/set the orientation
+(\alpha, \beta, \gamma)
+specified through three angles corresponding to a 3D rotation as defined in (3).
+Type
+[3], float
+property
+position
+Get/set the position
+(x,y,z)
+as three-dimensional vector
+Type
+[3], float
+## Scene Objects
+A scene is made of scene objects. Examples include cars, trees, buildings, furniture, etc. A scene object is characterized by its geometry and material (RadioMaterial) and implemented as an instance of the SceneObject class.
+Scene objects are uniquely identified by their name. To access a scene object, the get() method of Scene may be used. For example, the following code snippet shows how to load a scene and list its scene objects:
+scene = load_scene(sionna.rt.scene.munich)
+print(scene.objects)
+To select an object, e.g., named “Schrannenhalle-itu_metal”, you can run:
+my_object = scene.get("Schrannenhalle-itu_metal")
+You can then set the RadioMaterial of my_object as follows:
+my_object.radio_material = "itu_wood"
+Most scene objects names have postfixes of the form “-material_name”. These are used during loading of a scene to assign a RadioMaterial to each of them. This tutorial video explains how you can assign radio materials to objects when you create your own scenes.
+### class: sionna.rt.SceneObject
+Every object in the scene is implemented by an instance of this class
+property
+name
+Name
+Type
+str (read-only)
+property
+radio_material
+Get/set the radio material of the object. Setting can be done by using either an instance of RadioMaterial or the material name (str). If the radio material is not part of the scene, it will be added. This can raise an error if a different radio material with the same name was already added to the scene.
+Type
+RadioMaterial

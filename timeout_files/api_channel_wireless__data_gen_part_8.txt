@@ -1,0 +1,448 @@
+# Wireless
+
+## Utility functions
+### sionna.channel.gen_single_sector_topology(batch_size, num_ut, scenario, min_bs_ut_dist=None, isd=None, bs_height=None, min_ut_height=None, max_ut_height=None, indoor_probability=None, min_ut_velocity=None, max_ut_velocity=None, dtype=tf.complex64)
+### sionna.channel.gen_single_sector_topology_interferers(batch_size, num_ut, num_interferer, scenario, min_bs_ut_dist=None, isd=None, bs_height=None, min_ut_height=None, max_ut_height=None, indoor_probability=None, min_ut_velocity=None, max_ut_velocity=None, dtype=tf.complex64)
+### sionna.channel.exp_corr_mat(a, n, dtype=tf.complex64)
+### sionna.channel.one_ring_corr_mat(phi_deg, num_ant, d_h=0.5, sigma_phi_deg=15, dtype=tf.complex64)
+
+# Wireless
+
+This module provides layers and functions that implement wireless channel models. Models currently available include AWGN, flat-fading with (optional) SpatialCorrelation, RayleighBlockFading, as well as models from the 3rd Generation Partnership Project (3GPP) [TR38901]: TDL, CDL, UMi, UMa, and RMa. It is also possible to use externally generated CIRs.
+
+Apart from flat-fading, all of these models generate channel impulse responses (CIRs) that can then be used to implement a channel transfer function in the time domain or assuming an OFDM waveform.
+
+This is achieved using the different functions, classes, and Keras layers which operate as shown in the figures below.
+
+Fig. 7 Channel module architecture for time domain simulations.
+
+Fig. 8 Channel module architecture for simulations assuming OFDM waveform.
+
+A channel model generate CIRs from which channel responses in the time domain or in the frequency domain are computed using the cir_to_time_channel() or cir_to_ofdm_channel() functions, respectively. If one does not need access to the raw CIRs, the GenerateTimeChannel and GenerateOFDMChannel classes can be used to conveniently sample CIRs and generate channel responses in the desired domain.
+
+Once the channel responses in the time or frequency domain are computed, they can be applied to the channel input using the ApplyTimeChannel or ApplyOFDMChannel Keras layers.
+
+The following code snippets show how to setup and run a Rayleigh block fading model assuming an OFDM waveform, and without accessing the CIRs or channel responses. This is the easiest way to setup a channel model. Setting-up other models is done in a similar way, except for AWGN (see the AWGN class documentation).
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+channel  = OFDMChannel(channel_model = rayleigh,
+
+                       resource_grid = rg)
+
+where rg is an instance of ResourceGrid.
+
+Running the channel model is done as follows:
+
+# x is the channel input
+
+# no is the noise variance
+
+y = channel([x, no])
+
+To use the time domain representation of the channel, one can use TimeChannel instead of OFDMChannel.
+
+If access to the channel responses is needed, one can separate their generation from their application to the channel input by setting up the channel model as follows:
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+generate_channel = GenerateOFDMChannel(channel_model = rayleigh,
+
+                                       resource_grid = rg)
+
+
+
+apply_channel = ApplyOFDMChannel()
+
+where rg is an instance of ResourceGrid. Running the channel model is done as follows:
+
+# Generate a batch of channel responses
+
+h = generate_channel(batch_size)
+
+# Apply the channel
+
+# x is the channel input
+
+# no is the noise variance
+
+y = apply_channel([x, h, no])
+
+Generating and applying the channel in the time domain can be achieved by using GenerateTimeChannel and ApplyTimeChannel instead of GenerateOFDMChannel and ApplyOFDMChannel, respectively.
+
+To access the CIRs, setting up the channel can be done as follows:
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+apply_channel = ApplyOFDMChannel()
+
+and running the channel model as follows:
+
+cir = rayleigh(batch_size)
+
+h = cir_to_ofdm_channel(frequencies, *cir)
+
+y = apply_channel([x, h, no])
+
+where frequencies are the subcarrier frequencies in the baseband, which can be computed using the subcarrier_frequencies() utility function.
+
+Applying the channel in the time domain can be done by using cir_to_time_channel() and ApplyTimeChannel instead of cir_to_ofdm_channel() and ApplyOFDMChannel, respectively.
+
+For the purpose of the present document, the following symbols apply:
+
+N_T (u)
+
+Number of transmitters (transmitter index)
+
+N_T (u)
+
+Number of receivers (receiver index)
+
+N_{TA} (k)
+
+Number of antennas per transmitter (transmit antenna index)
+
+N_{RA} (l)
+
+Number of antennas per receiver (receive antenna index)
+
+N_S (s)
+
+Number of OFDM symbols (OFDM symbol index)
+
+N_F (n)
+
+Number of subcarriers (subcarrier index)
+
+N_B (b)
+
+Number of time samples forming the channel input (baseband symbol index)
+
+L_{\text{min}}
+
+Smallest time-lag for the discrete complex baseband channel
+
+L_{\text{max}}
+
+Largest time-lag for the discrete complex baseband channel
+
+M (m)
+
+Number of paths (clusters) forming a power delay profile (path index)
+
+\tau_m(t)
+
+m^{th}
+
+path (cluster) delay at time step
+
+t
+
+a_m(t)
+
+m^{th}
+
+path (cluster) complex coefficient at time step
+
+\Delta_f
+
+Subcarrier spacing
+
+W
+
+Bandwidth
+
+N_0
+
+Noise variance
+
+All transmitters are equipped with
+
+N_{TA}
+
+antennas and all receivers with
+
+N_{RA}
+
+antennas.
+
+A channel model, such as RayleighBlockFading or UMi, is used to generate for each link between antenna
+
+k
+
+of transmitter
+
+u
+
+and antenna
+
+l
+
+of receiver
+
+v
+
+a power delay profile
+
+(a_{u, k, v, l, m}(t), \tau_{u, v, m}), 0 \leq m \leq M-1
+
+. The delays are assumed not to depend on time
+
+t
+
+, and transmit and receive antennas
+
+k
+
+and
+
+l
+
+. Such a power delay profile corresponds to the channel impulse response
+
+h_{u, k, v, l}(t,\tau) =
+
+\sum_{m=0}^{M-1} a_{u, k, v, l,m}(t) \delta(\tau - \tau_{u, v, m})
+
+where
+
+\delta(\cdot)
+
+is the Dirac delta measure. For example, in the case of Rayleigh block fading, the power delay profiles are time-invariant and such that for every link
+
+(u, k, v, l)
+
+\begin{split}\begin{align}
+
+   M                     &= 1\\
+
+   \tau_{u, v, 0}  &= 0\\
+
+   a_{u, k, v, l, 0}     &\sim \mathcal{CN}(0,1).
+
+\end{align}\end{split}
+
+.
+
+3GPP channel models use the procedure depicted in [TR38901] to generate power delay profiles. With these models, the power delay profiles are time-variant in the event of mobility.
+
+### sionna.channel.gen_single_sector_topology(batch_size, num_ut, scenario, min_bs_ut_dist=None, isd=None, bs_height=None, min_ut_height=None, max_ut_height=None, indoor_probability=None, min_ut_velocity=None, max_ut_velocity=None, dtype=tf.complex64)
+Generate a batch of topologies consisting of a single BS located at the origin and num_ut UTs randomly and uniformly dropped in a cell sector.
+The following picture shows the sector from which UTs are sampled.
+UTs orientations are randomly and uniformly set, whereas the BS orientation is set such that the it is oriented towards the center of the sector.
+The drop configuration can be controlled through the optional parameters. Parameters set to None are set to valid values according to the chosen scenario (see [TR38901]).
+The returned batch of topologies can be used as-is with the set_topology() method of the system level models, i.e. UMi, UMa, and RMa.
+Example
+>>> # Create antenna arrays
+>>> bs_array = PanelArray(num_rows_per_panel = 4,
+...                      num_cols_per_panel = 4,
+...                      polarization = 'dual',
+...                      polarization_type = 'VH',
+...                      antenna_pattern = '38.901',
+...                      carrier_frequency = 3.5e9)
+>>>
+>>> ut_array = PanelArray(num_rows_per_panel = 1,
+...                       num_cols_per_panel = 1,
+...                       polarization = 'single',
+...                       polarization_type = 'V',
+...                       antenna_pattern = 'omni',
+...                       carrier_frequency = 3.5e9)
+>>> # Create channel model
+>>> channel_model = UMi(carrier_frequency = 3.5e9,
+...                     o2i_model = 'low',
+...                     ut_array = ut_array,
+...                     bs_array = bs_array,
+...                     direction = 'uplink')
+>>> # Generate the topology
+>>> topology = gen_single_sector_topology(batch_size = 100,
+...                                       num_ut = 4,
+...                                       scenario = 'umi')
+>>> # Set the topology
+>>> ut_loc, bs_loc, ut_orientations, bs_orientations, ut_velocities, in_state = topology
+>>> channel_model.set_topology(ut_loc,
+...                            bs_loc,
+...                            ut_orientations,
+...                            bs_orientations,
+...                            ut_velocities,
+...                            in_state)
+>>> channel_model.show_topology()
+Input
+batch_size (int) – Batch size
+num_ut (int) – Number of UTs to sample per batch example
+scenario (str) – System leven model scenario. Must be one of “rma”, “umi”, or “uma”.
+min_bs_ut_dist (None or tf.float) – Minimum BS-UT distance [m]
+isd (None or tf.float) – Inter-site distance [m]
+bs_height (None or tf.float) – BS elevation [m]
+min_ut_height (None or tf.float) – Minimum UT elevation [m]
+max_ut_height (None or tf.float) – Maximum UT elevation [m]
+indoor_probability (None or tf.float) – Probability of a UT to be indoor
+min_ut_velocity (None or tf.float) – Minimum UT velocity [m/s]
+max_ut_velocity (None or tf.float) – Maximim UT velocity [m/s]
+dtype (tf.DType) – Datatype to use for internal processing and output. If a complex datatype is provided, the corresponding precision of real components is used. Defaults to tf.complex64 (tf.float32).
+Output
+ut_loc ([batch_size, num_ut, 3], tf.float) – UTs locations
+bs_loc ([batch_size, 1, 3], tf.float) – BS location. Set to (0,0,0) for all batch examples.
+ut_orientations ([batch_size, num_ut, 3], tf.float) – UTs orientations [radian]
+bs_orientations ([batch_size, 1, 3], tf.float) – BS orientations [radian]. Oriented towards the center of the sector.
+ut_velocities ([batch_size, num_ut, 3], tf.float) – UTs velocities [m/s]
+in_state ([batch_size, num_ut], tf.float) – Indoor/outdoor state of UTs. True means indoor, False means outdoor.
+### sionna.channel.gen_single_sector_topology_interferers(batch_size, num_ut, num_interferer, scenario, min_bs_ut_dist=None, isd=None, bs_height=None, min_ut_height=None, max_ut_height=None, indoor_probability=None, min_ut_velocity=None, max_ut_velocity=None, dtype=tf.complex64)
+Generate a batch of topologies consisting of a single BS located at the origin, num_ut UTs randomly and uniformly dropped in a cell sector, and num_interferer interfering UTs randomly dropped in the adjacent cells.
+The following picture shows how UTs are sampled
+UTs orientations are randomly and uniformly set, whereas the BS orientation is set such that it is oriented towards the center of the sector it serves.
+The drop configuration can be controlled through the optional parameters. Parameters set to None are set to valid values according to the chosen scenario (see [TR38901]).
+The returned batch of topologies can be used as-is with the set_topology() method of the system level models, i.e. UMi, UMa, and RMa.
+In the returned ut_loc, ut_orientations, ut_velocities, and in_state tensors, the first num_ut items along the axis with index 1 correspond to the served UTs, whereas the remaining num_interferer items correspond to the interfering UTs.
+Example
+>>> # Create antenna arrays
+>>> bs_array = PanelArray(num_rows_per_panel = 4,
+...                      num_cols_per_panel = 4,
+...                      polarization = 'dual',
+...                      polarization_type = 'VH',
+...                      antenna_pattern = '38.901',
+...                      carrier_frequency = 3.5e9)
+>>>
+>>> ut_array = PanelArray(num_rows_per_panel = 1,
+...                       num_cols_per_panel = 1,
+...                       polarization = 'single',
+...                       polarization_type = 'V',
+...                       antenna_pattern = 'omni',
+...                       carrier_frequency = 3.5e9)
+>>> # Create channel model
+>>> channel_model = UMi(carrier_frequency = 3.5e9,
+...                     o2i_model = 'low',
+...                     ut_array = ut_array,
+...                     bs_array = bs_array,
+...                     direction = 'uplink')
+>>> # Generate the topology
+>>> topology = gen_single_sector_topology_interferers(batch_size = 100,
+...                                                   num_ut = 4,
+...                                                   num_interferer = 4,
+...                                                   scenario = 'umi')
+>>> # Set the topology
+>>> ut_loc, bs_loc, ut_orientations, bs_orientations, ut_velocities, in_state = topology
+>>> channel_model.set_topology(ut_loc,
+...                            bs_loc,
+...                            ut_orientations,
+...                            bs_orientations,
+...                            ut_velocities,
+...                            in_state)
+>>> channel_model.show_topology()
+Input
+batch_size (int) – Batch size
+num_ut (int) – Number of UTs to sample per batch example
+num_interferer (int) – Number of interfeering UTs per batch example
+scenario (str) – System leven model scenario. Must be one of “rma”, “umi”, or “uma”.
+min_bs_ut_dist (None or tf.float) – Minimum BS-UT distance [m]
+isd (None or tf.float) – Inter-site distance [m]
+bs_height (None or tf.float) – BS elevation [m]
+min_ut_height (None or tf.float) – Minimum UT elevation [m]
+max_ut_height (None or tf.float) – Maximum UT elevation [m]
+indoor_probability (None or tf.float) – Probability of a UT to be indoor
+min_ut_velocity (None or tf.float) – Minimum UT velocity [m/s]
+max_ut_velocity (None or tf.float) – Maximim UT velocity [m/s]
+dtype (tf.DType) – Datatype to use for internal processing and output. If a complex datatype is provided, the corresponding precision of real components is used. Defaults to tf.complex64 (tf.float32).
+Output
+ut_loc ([batch_size, num_ut, 3], tf.float) – UTs locations. The first num_ut items along the axis with index 1 correspond to the served UTs, whereas the remaining num_interferer items correspond to the interfeering UTs.
+bs_loc ([batch_size, 1, 3], tf.float) – BS location. Set to (0,0,0) for all batch examples.
+ut_orientations ([batch_size, num_ut, 3], tf.float) – UTs orientations [radian]. The first num_ut items along the axis with index 1 correspond to the served UTs, whereas the remaining num_interferer items correspond to the interfeering UTs.
+bs_orientations ([batch_size, 1, 3], tf.float) – BS orientation [radian]. Oriented towards the center of the sector.
+ut_velocities ([batch_size, num_ut, 3], tf.float) – UTs velocities [m/s]. The first num_ut items along the axis with index 1 correspond to the served UTs, whereas the remaining num_interferer items correspond to the interfeering UTs.
+in_state ([batch_size, num_ut], tf.float) – Indoor/outdoor state of UTs. True means indoor, False means outdoor. The first num_ut items along the axis with index 1 correspond to the served UTs, whereas the remaining num_interferer items correspond to the interfeering UTs.
+### sionna.channel.exp_corr_mat(a, n, dtype=tf.complex64)
+Generate exponential correlation matrices.
+This function computes for every element
+\mathbf{a}
+of a complex-valued tensor
+\mathbf{a}
+the corresponding
+n\times n
+exponential correlation matrix
+\mathbf{R}(a,n)
+, defined as (Eq. 1, [MAL2018]):
+\begin{split}\mathbf{R}(a,n)_{i,j} = \begin{cases}
+            1 & \text{if } i=j\\
+            a^{i-j}  & \text{if } i>j\\
+            (a^\star)^{j-i}  & \text{if } j<i, j=1,\dots,n\\
+          \end{cases}\end{split}
+where
+|a|<1
+and
+\mathbf{R}\in\mathbb{C}^{n\times n}
+.
+Input
+a ([n_0, …, n_k], tf.complex) – A tensor of arbitrary rank whose elements have an absolute value smaller than one.
+n (int) – Number of dimensions of the output correlation matrices.
+dtype (tf.complex64, tf.complex128) – The dtype of the output.
+Output
+R ([n_0, …, n_k, n, n], tf.complex) – A tensor of the same dtype as the input tensor
+a
+.
+### sionna.channel.one_ring_corr_mat(phi_deg, num_ant, d_h=0.5, sigma_phi_deg=15, dtype=tf.complex64)
+Generate covariance matrices from the one-ring model.
+This function generates approximate covariance matrices for the so-called one-ring model (Eq. 2.24) [BHS2017]. A uniform linear array (ULA) with uniform antenna spacing is assumed. The elements of the covariance matrices are computed as:
+\mathbf{R}_{\ell,m} =
+      \exp\left( j2\pi d_\text{H} (\ell -m)\sin(\varphi) \right)
+      \exp\left( -\frac{\sigma_\varphi^2}{2}
+      \left( 2\pi d_\text{H}(\ell -m)\cos(\varphi) \right)^2 \right)
+−
+for
+\ell,m = 1,\dots, M
+, where
+M
+is the number of antennas,
+\varphi
+is the angle of arrival,
+d_\text{H}
+is the antenna spacing in multiples of the wavelength, and
+\sigma^2_\varphi
+is the angular standard deviation.
+Input
+phi_deg ([n_0, …, n_k], tf.float) – A tensor of arbitrary rank containing azimuth angles (deg) of arrival.
+num_ant (int) – Number of antennas
+d_h (float) – Antenna spacing in multiples of the wavelength. Defaults to 0.5.
+sigma_phi_deg (float) – Angular standard deviation (deg). Defaults to 15 (deg). Values greater than 15 should not be used as the approximation becomes invalid.
+dtype (tf.complex64, tf.complex128) – The dtype of the output.
+Output
+R ([n_0, …, n_k, num_ant, nun_ant], dtype) – Tensor containing the covariance matrices of the desired dtype.
+References:
+TR38901(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
+3GPP TR 38.901, “Study on channel model for frequencies from 0.5 to 100 GHz”, Release 16.1
+TS38141-1
+3GPP TS 38.141-1 “Base Station (BS) conformance testing Part 1: Conducted conformance testing”, Release 17
+Tse
+D. Tse and P. Viswanath, “Fundamentals of wireless communication“, Cambridge university press, 2005.
+SoS
+Xiao, Y. R. Zheng and N. C. Beaulieu, “Novel Sum-of-Sinusoids Simulation Models for Rayleigh and Rician Fading Channels,” in IEEE Transactions on Wireless Communications, vol. 5, no. 12, pp. 3667-3679, December 2006, doi: 10.1109/TWC.2006.256990.
+MAL2018
+Ranjan K. Mallik, “The exponential correlation matrix: Eigen-analysis and applications”, IEEE Trans. Wireless Commun., vol. 17, no. 7, pp. 4690-4705, Jul. 2018.
+BHS2017
+Emil Björnson, Jakob Hoydis and Luca Sanguinetti (2017), “Massive MIMO Networks: Spectral, Energy, and Hardware Efficiency”, Foundations and Trends in Signal Processing: Vol. 11, No. 3-4, pp 154–655.
+Previous
+Next
+© Copyright 2021-2023 NVIDIA CORPORATION.
+Built with Sphinx using a theme provided by Read the Docs.

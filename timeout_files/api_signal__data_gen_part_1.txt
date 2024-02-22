@@ -1,0 +1,323 @@
+# Signal
+
+## Filters
+### class: sionna.signal.SincFilter(span_in_symbols, samples_per_symbol, window=None, normalize=True, trainable=False, dtype=tf.float32, **kwargs)
+### class: sionna.signal.RaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window=None, normalize=True, trainable=False, dtype=tf.float32, **kwargs)
+### class: sionna.signal.RootRaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window=None, normalize=True, trainable=False, dtype=tf.float32, **kwargs)
+### class: sionna.signal.CustomFilter(span_in_symbols=None, samples_per_symbol=None, coefficients=None, window=None, normalize=True, trainable=False, dtype=tf.float32, **kwargs)
+
+# Signal
+
+This module contains classes and functions for filtering (pulse shaping), windowing, and up- and downsampling. The following figure shows the different components that can be implemented using this module.
+
+This module also contains utility functions for computing the (inverse) discrete Fourier transform (FFT/IFFT), and for empirically computing the power spectral density (PSD) and adjacent channel leakage ratio (ACLR) of a signal.
+
+The following code snippet shows how to filter a sequence of QAM baseband symbols using a root-raised-cosine filter with a Hann window:
+
+# Create batch of QAM-16 sequences
+
+batch_size = 128
+
+num_symbols = 1000
+
+num_bits_per_symbol = 4
+
+x = QAMSource(num_bits_per_symbol)([batch_size, num_symbols])
+
+
+
+# Create a root-raised-cosine filter with Hann windowing
+
+beta = 0.22 # Roll-off factor
+
+span_in_symbols = 32 # Filter span in symbols
+
+samples_per_symbol = 4 # Number of samples per symbol, i.e., the oversampling factor
+
+rrcf_hann = RootRaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window="hann")
+
+
+
+# Create instance of the Upsampling layer
+
+us = Upsampling(samples_per_symbol)
+
+
+
+# Upsample the baseband x
+
+x_us = us(x)
+
+
+
+# Filter the upsampled sequence
+
+x_rrcf = rrcf_hann(x_us)
+
+On the receiver side, one would recover the baseband symbols as follows:
+
+# Instantiate a downsampling layer
+
+ds = Downsampling(samples_per_symbol, rrcf_hann.length-1, num_symbols)
+
+
+
+# Apply the matched filter
+
+x_mf = rrcf_hann(x_rrcf)
+
+
+
+# Recover the transmitted symbol sequence
+
+x_hat = ds(x_mf)
+
+## Filters
+### class: sionna.signal.SincFilter(span_in_symbols, samples_per_symbol, window=None, normalize=True, trainable=False, dtype=tf.float32, **kwargs)
+Layer for applying a sinc filter of length K to an input x of length N.
+The sinc filter is defined by
+h(t) = \frac{1}{T}\text{sinc}\left(\frac{t}{T}\right)
+where
+T
+the symbol duration.
+The filter length K is equal to the filter span in symbols (span_in_symbols) multiplied by the oversampling factor (samples_per_symbol). If this product is even, a value of one will be added.
+The filter is applied through discrete convolution.
+An optional windowing function window can be applied to the filter.
+The dtype of the output is tf.float if both x and the filter coefficients have dtype tf.float. Otherwise, the dtype of the output is tf.complex.
+Three padding modes are available for applying the filter:
+“full” (default): Returns the convolution at each point of overlap between x and the filter. The length of the output is N + K - 1. Zero-padding of the input x is performed to compute the convolution at the borders.
+“same”: Returns an output of the same length as the input x. The convolution is computed such that the coefficients of the input x are centered on the coefficient of the filter with index (K-1)/2. Zero-padding of the input signal is performed to compute the convolution at the borders.
+“valid”: Returns the convolution only at points where x and the filter completely overlap. The length of the output is N - K + 1.
+Parameters
+span_in_symbols (int) – Filter span as measured by the number of symbols.
+samples_per_symbol (int) – Number of samples per symbol, i.e., the oversampling factor.
+window (Window or string (["hann", "hamming", "blackman"])) – Instance of Window that is applied to the filter coefficients. Alternatively, a string indicating the window name can be provided. In this case, the chosen window will be instantiated with the default parameters. Custom windows must be provided as instance.
+normalize (bool) – If True, the filter is normalized to have unit power. Defaults to True.
+trainable (bool) – If True, the filter coefficients are trainable variables. Defaults to False.
+dtype (tf.DType) – The dtype of the filter coefficients. Defaults to tf.float32.
+Input
+x ([…, N], tf.complex or tf.float) – The input to which the filter is applied. The filter is applied along the last dimension.
+padding (string ([“full”, “valid”, “same”])) – Padding mode for convolving x and the filter. Must be one of “full”, “valid”, or “same”. Case insensitive. Defaults to “full”.
+conjugate (bool) – If True, the complex conjugate of the filter is applied. Defaults to False.
+Output
+y ([…,M], tf.complex or tf.float) – Filtered input. It is tf.float only if both x and the filter are tf.float. It is tf.complex otherwise. The length M depends on the padding.
+property
+aclr
+ACLR of the filter
+This ACLR corresponds to what one would obtain from using this filter as pulse shaping filter on an i.i.d. sequence of symbols. The in-band is assumed to range from [-0.5, 0.5] in normalized frequency.
+property
+coefficients
+The filter coefficients (after normalization)
+property
+length
+The filter length in samples
+property
+normalize
+True if the filter is normalized to have unit power. False otherwise.
+property
+sampling_times
+Sampling times in multiples of the symbol duration
+show(response='impulse', scale='lin')
+Plot the impulse or magnitude response
+Plots the impulse response (time domain) or magnitude response (frequency domain) of the filter.
+For the computation of the magnitude response, a minimum DFT size of 1024 is assumed which is obtained through zero padding of the filter coefficients in the time domain.
+Input
+response (str, one of [“impulse”, “magnitude”]) – The desired response type. Defaults to “impulse”
+scale (str, one of [“lin”, “db”]) – The y-scale of the magnitude response. Can be “lin” (i.e., linear) or “db” (, i.e., Decibel). Defaults to “lin”.
+property
+trainable
+True if the filter coefficients are trainable. False otherwise.
+property
+window
+The window function that is applied to the filter coefficients. None if no window is applied.
+### class: sionna.signal.RaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window=None, normalize=True, trainable=False, dtype=tf.float32, **kwargs)
+Layer for applying a raised-cosine filter of length K to an input x of length N.
+The raised-cosine filter is defined by
+\begin{split}h(t) =
+\begin{cases}
+\frac{\pi}{4T} \text{sinc}\left(\frac{1}{2\beta}\right), & \text { if }t = \pm \frac{T}{2\beta}\\
+\frac{1}{T}\text{sinc}\left(\frac{t}{T}\right)\frac{\cos\left(\frac{\pi\beta t}{T}\right)}{1-\left(\frac{2\beta t}{T}\right)^2}, & \text{otherwise}
+\end{cases}\end{split}
+where
+\beta
+is the roll-off factor and
+T
+the symbol duration.
+The filter length K is equal to the filter span in symbols (span_in_symbols) multiplied by the oversampling factor (samples_per_symbol). If this product is even, a value of one will be added.
+The filter is applied through discrete convolution.
+An optional windowing function window can be applied to the filter.
+The dtype of the output is tf.float if both x and the filter coefficients have dtype tf.float. Otherwise, the dtype of the output is tf.complex.
+Three padding modes are available for applying the filter:
+“full” (default): Returns the convolution at each point of overlap between x and the filter. The length of the output is N + K - 1. Zero-padding of the input x is performed to compute the convolution at the borders.
+“same”: Returns an output of the same length as the input x. The convolution is computed such that the coefficients of the input x are centered on the coefficient of the filter with index (K-1)/2. Zero-padding of the input signal is performed to compute the convolution at the borders.
+“valid”: Returns the convolution only at points where x and the filter completely overlap. The length of the output is N - K + 1.
+Parameters
+span_in_symbols (int) – Filter span as measured by the number of symbols.
+samples_per_symbol (int) – Number of samples per symbol, i.e., the oversampling factor.
+beta (float) – Roll-off factor. Must be in the range
+[0,1]
+.
+window (Window or string (["hann", "hamming", "blackman"])) – Instance of Window that is applied to the filter coefficients. Alternatively, a string indicating the window name can be provided. In this case, the chosen window will be instantiated with the default parameters. Custom windows must be provided as instance.
+normalize (bool) – If True, the filter is normalized to have unit power. Defaults to True.
+trainable (bool) – If True, the filter coefficients are trainable variables. Defaults to False.
+dtype (tf.DType) – The dtype of the filter coefficients. Defaults to tf.float32.
+Input
+x ([…, N], tf.complex or tf.float) – The input to which the filter is applied. The filter is applied along the last dimension.
+padding (string ([“full”, “valid”, “same”])) – Padding mode for convolving x and the filter. Must be one of “full”, “valid”, or “same”. Defaults to “full”.
+conjugate (bool) – If True, the complex conjugate of the filter is applied. Defaults to False.
+Output
+y ([…,M], tf.complex or tf.float) – Filtered input. It is tf.float only if both x and the filter are tf.float. It is tf.complex otherwise. The length M depends on the padding.
+property
+aclr
+ACLR of the filter
+This ACLR corresponds to what one would obtain from using this filter as pulse shaping filter on an i.i.d. sequence of symbols. The in-band is assumed to range from [-0.5, 0.5] in normalized frequency.
+property
+beta
+Roll-off factor
+property
+coefficients
+The filter coefficients (after normalization)
+property
+length
+The filter length in samples
+property
+normalize
+True if the filter is normalized to have unit power. False otherwise.
+property
+sampling_times
+Sampling times in multiples of the symbol duration
+show(response='impulse', scale='lin')
+Plot the impulse or magnitude response
+Plots the impulse response (time domain) or magnitude response (frequency domain) of the filter.
+For the computation of the magnitude response, a minimum DFT size of 1024 is assumed which is obtained through zero padding of the filter coefficients in the time domain.
+Input
+response (str, one of [“impulse”, “magnitude”]) – The desired response type. Defaults to “impulse”
+scale (str, one of [“lin”, “db”]) – The y-scale of the magnitude response. Can be “lin” (i.e., linear) or “db” (, i.e., Decibel). Defaults to “lin”.
+property
+trainable
+True if the filter coefficients are trainable. False otherwise.
+property
+window
+The window function that is applied to the filter coefficients. None if no window is applied.
+### class: sionna.signal.RootRaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window=None, normalize=True, trainable=False, dtype=tf.float32, **kwargs)
+Layer for applying a root-raised-cosine filter of length K to an input x of length N.
+The root-raised-cosine filter is defined by
+\begin{split}h(t) =
+\begin{cases}
+\frac{1}{T} \left(1 + \beta\left(\frac{4}{\pi}-1\right) \right), & \text { if }t = 0\\
+\frac{\beta}{T\sqrt{2}} \left[ \left(1+\frac{2}{\pi}\right)\sin\left(\frac{\pi}{4\beta}\right) + \left(1-\frac{2}{\pi}\right)\cos\left(\frac{\pi}{4\beta}\right) \right], & \text { if }t = \pm\frac{T}{4\beta} \\
+\frac{1}{T} \frac{\sin\left(\pi\frac{t}{T}(1-\beta)\right) + 4\beta\frac{t}{T}\cos\left(\pi\frac{t}{T}(1+\beta)\right)}{\pi\frac{t}{T}\left(1-\left(4\beta\frac{t}{T}\right)^2\right)}, & \text { otherwise}
+\end{cases}\end{split}where
+\beta
+is the roll-off factor and
+T
+the symbol duration.
+The filter length K is equal to the filter span in symbols (span_in_symbols) multiplied by the oversampling factor (samples_per_symbol). If this product is even, a value of one will be added.
+The filter is applied through discrete convolution.
+An optional windowing function window can be applied to the filter.
+The dtype of the output is tf.float if both x and the filter coefficients have dtype tf.float. Otherwise, the dtype of the output is tf.complex.
+Three padding modes are available for applying the filter:
+“full” (default): Returns the convolution at each point of overlap between x and the filter. The length of the output is N + K - 1. Zero-padding of the input x is performed to compute the convolution at the borders.
+“same”: Returns an output of the same length as the input x. The convolution is computed such that the coefficients of the input x are centered on the coefficient of the filter with index (K-1)/2. Zero-padding of the input signal is performed to compute the convolution at the borders.
+“valid”: Returns the convolution only at points where x and the filter completely overlap. The length of the output is N - K + 1.
+Parameters
+span_in_symbols (int) – Filter span as measured by the number of symbols.
+samples_per_symbol (int) – Number of samples per symbol, i.e., the oversampling factor.
+beta (float) – Roll-off factor. Must be in the range
+[0,1]
+.
+window (Window or string (["hann", "hamming", "blackman"])) – Instance of Window that is applied to the filter coefficients. Alternatively, a string indicating the window name can be provided. In this case, the chosen window will be instantiated with the default parameters. Custom windows must be provided as instance.
+normalize (bool) – If True, the filter is normalized to have unit power. Defaults to True.
+trainable (bool) – If True, the filter coefficients are trainable variables. Defaults to False.
+dtype (tf.DType) – The dtype of the filter coefficients. Defaults to tf.float32.
+Input
+x ([…, N], tf.complex or tf.float) – The input to which the filter is applied. The filter is applied along the last dimension.
+padding (string ([“full”, “valid”, “same”])) – Padding mode for convolving x and the filter. Must be one of “full”, “valid”, or “same”. Case insensitive. Defaults to “full”.
+conjugate (bool) – If True, the complex conjugate of the filter is applied. Defaults to False.
+Output
+y ([…,M], tf.complex or tf.float) – Filtered input. It is tf.float only if both x and the filter are tf.float. It is tf.complex otherwise. The length M depends on the padding.
+property
+aclr
+ACLR of the filter
+This ACLR corresponds to what one would obtain from using this filter as pulse shaping filter on an i.i.d. sequence of symbols. The in-band is assumed to range from [-0.5, 0.5] in normalized frequency.
+property
+beta
+Roll-off factor
+property
+coefficients
+The filter coefficients (after normalization)
+property
+length
+The filter length in samples
+property
+normalize
+True if the filter is normalized to have unit power. False otherwise.
+property
+sampling_times
+Sampling times in multiples of the symbol duration
+show(response='impulse', scale='lin')
+Plot the impulse or magnitude response
+Plots the impulse response (time domain) or magnitude response (frequency domain) of the filter.
+For the computation of the magnitude response, a minimum DFT size of 1024 is assumed which is obtained through zero padding of the filter coefficients in the time domain.
+Input
+response (str, one of [“impulse”, “magnitude”]) – The desired response type. Defaults to “impulse”
+scale (str, one of [“lin”, “db”]) – The y-scale of the magnitude response. Can be “lin” (i.e., linear) or “db” (, i.e., Decibel). Defaults to “lin”.
+property
+trainable
+True if the filter coefficients are trainable. False otherwise.
+property
+window
+The window function that is applied to the filter coefficients. None if no window is applied.
+### class: sionna.signal.CustomFilter(span_in_symbols=None, samples_per_symbol=None, coefficients=None, window=None, normalize=True, trainable=False, dtype=tf.float32, **kwargs)
+Layer for applying a custom filter of length K to an input x of length N.
+The filter length K is equal to the filter span in symbols (span_in_symbols) multiplied by the oversampling factor (samples_per_symbol). If this product is even, a value of one will be added.
+The filter is applied through discrete convolution.
+An optional windowing function window can be applied to the filter.
+The dtype of the output is tf.float if both x and the filter coefficients have dtype tf.float. Otherwise, the dtype of the output is tf.complex.
+Three padding modes are available for applying the filter:
+“full” (default): Returns the convolution at each point of overlap between x and the filter. The length of the output is N + K - 1. Zero-padding of the input x is performed to compute the convolution at the borders.
+“same”: Returns an output of the same length as the input x. The convolution is computed such that the coefficients of the input x are centered on the coefficient of the filter with index (K-1)/2. Zero-padding of the input signal is performed to compute the convolution at the borders.
+“valid”: Returns the convolution only at points where x and the filter completely overlap. The length of the output is N - K + 1.
+Parameters
+span_in_symbols (int) – Filter span as measured by the number of symbols. Only needs to be provided if coefficients is None.
+samples_per_symbol (int) – Number of samples per symbol, i.e., the oversampling factor. Must always be provided.
+coefficients ([K], tf.float or tf.complex) – Optional filter coefficients. If set to None, then a random filter of K is generated by sampling a Gaussian distribution. Defaults to None.
+window (Window or string (["hann", "hamming", "blackman"])) – Instance of Window that is applied to the filter coefficients. Alternatively, a string indicating the window name can be provided. In this case, the chosen window will be instantiated with the default parameters. Custom windows must be provided as instance.
+normalize (bool) – If True, the filter is normalized to have unit power. Defaults to True.
+trainable (bool) – If True, the filter coefficients are trainable variables. Defaults to False.
+dtype (tf.DType) – The dtype of the filter coefficients. Defaults to tf.float32.
+Input
+x ([…, N], tf.complex or tf.float) – The input to which the filter is applied. The filter is applied along the last dimension.
+padding (string ([“full”, “valid”, “same”])) – Padding mode for convolving x and the filter. Must be one of “full”, “valid”, or “same”. Case insensitive. Defaults to “full”.
+conjugate (bool) – If True, the complex conjugate of the filter is applied. Defaults to False.
+Output
+y ([…,M], tf.complex or tf.float) – Filtered input. It is tf.float only if both x and the filter are tf.float. It is tf.complex otherwise. The length M depends on the padding.
+property
+aclr
+ACLR of the filter
+This ACLR corresponds to what one would obtain from using this filter as pulse shaping filter on an i.i.d. sequence of symbols. The in-band is assumed to range from [-0.5, 0.5] in normalized frequency.
+property
+coefficients
+The filter coefficients (after normalization)
+property
+length
+The filter length in samples
+property
+normalize
+True if the filter is normalized to have unit power. False otherwise.
+property
+sampling_times
+Sampling times in multiples of the symbol duration
+show(response='impulse', scale='lin')
+Plot the impulse or magnitude response
+Plots the impulse response (time domain) or magnitude response (frequency domain) of the filter.
+For the computation of the magnitude response, a minimum DFT size of 1024 is assumed which is obtained through zero padding of the filter coefficients in the time domain.
+Input
+response (str, one of [“impulse”, “magnitude”]) – The desired response type. Defaults to “impulse”
+scale (str, one of [“lin”, “db”]) – The y-scale of the magnitude response. Can be “lin” (i.e., linear) or “db” (, i.e., Decibel). Defaults to “lin”.
+property
+trainable
+True if the filter coefficients are trainable. False otherwise.
+property
+window
+The window function that is applied to the filter coefficients. None if no window is applied.

@@ -1,0 +1,178 @@
+# Ray Tracing
+
+## Antennas
+### sionna.rt.antenna.polarization_model_2(c, slant_angle)
+## Utility Functions
+### sionna.rt.cross(u, v)
+### sionna.rt.dot(u, v, keepdim=False, clip=False)
+### sionna.rt.normalize(v)
+### sionna.rt.phi_hat(phi)
+### sionna.rt.rotate(p, angles)
+### sionna.rt.rotation_matrix(angles)
+### sionna.rt.rot_mat_from_unit_vecs(a, b)
+### sionna.rt.r_hat(theta, phi)
+### sionna.rt.sample_points_on_hemisphere(normals, num_samples=1)
+### sionna.rt.theta_hat(theta, phi)
+### sionna.rt.theta_phi_from_unit_vec(v)
+
+# Ray Tracing
+
+This module provides a differentiable ray tracer for radio propagation modeling. The best way to get started is by having a look at the Sionna Ray Tracing Tutorial. The Primer on Electromagnetics provides useful background knowledge and various definitions that are used throughout the API documentation.
+
+The most important component of the ray tracer is the Scene. It has methods for the computation of propagation Paths (compute_paths()) and CoverageMap (coverage_map()). Sionna has several integrated Example Scenes that you can use for your own experiments. In this video, we explain how you can create your own scenes using OpenStreetMap and Blender. You can preview a scene within a Jupyter notebook (preview()) or render it to a file from the viewpoint of a camera (render() or render_to_file()).
+
+Propagation Paths can be transformed into time-varying channel impulse responses (CIRs) via cir(). The CIRs can then be used for link-level simulations in Sionna via the functions cir_to_time_channel() or cir_to_ofdm_channel(). Alternatively, you can create a dataset of CIRs that can be used by a channel model with the help of CIRDataset.
+
+The paper Sionna RT: Differentiable Ray Tracing for Radio Propagation Modeling shows how differentiable ray tracing can be used for various optimization tasks. The related notebooks can be a good starting point for your own experiments.
+
+### sionna.rt.antenna.polarization_model_2(c, slant_angle)
+Model-2 for polarized antennas from 3GPP TR 38.901
+Transforms a vertically polarized antenna pattern
+\tilde{C}_\theta(\theta, \varphi)
+into a linearly polarized pattern whose direction is specified by a slant angle
+\zeta
+. For example,
+\zeta=0
+and
+\zeta=\pi/2
+correspond to vertical and horizontal polarization, respectively, and
+\zeta=\pm \pi/4
+to a pair of cross polarized antenna elements.
+The transformed antenna pattern is given by (7.3-4/5) [TR38901]:
+\begin{split}\begin{align}
+    \begin{bmatrix}
+        C_\theta(\theta, \varphi) \\
+        C_\varphi(\theta, \varphi)
+    \end{bmatrix} &= \begin{bmatrix}
+     \cos(\zeta) \\
+     \sin(\zeta)
+    \end{bmatrix} \tilde{C}_\theta(\theta, \varphi)
+\end{align}\end{split}
+Input
+c_tilde_theta (array_like, complex) – Zenith pattern
+slant_angle (float) – Slant angle of the linear polarization [rad]. A slant angle of zero means vertical polarization.
+Output
+c_theta (array_like, complex) – Zenith pattern
+c_phi (array_like, complex) – Azimuth pattern
+## Utility Functions
+### sionna.rt.cross(u, v)
+Computes the cross (or vector) product between u and v
+Input
+u ([…,3]) – First vector
+v ([…,3]) – Second vector
+Output
+[…,3] – Cross product between u and v
+### sionna.rt.dot(u, v, keepdim=False, clip=False)
+Computes and the dot (or scalar) product between u and v
+Input
+u ([…,3]) – First vector
+v ([…,3]) – Second vector
+keepdim (bool) – If True, keep the last dimension. Defaults to False.
+clip (bool) – If True, clip output to [-1,1]. Defaults to False.
+Output
+[…,1] or […] – Dot product between u and v. The last dimension is removed if keepdim is set to False.
+### sionna.rt.normalize(v)
+Normalizes v to unit norm
+Input
+v ([…,3], tf.float) – Vector
+Output
+[…,3], tf.float – Normalized vector
+[…], tf.float – Norm of the unnormalized vector
+### sionna.rt.phi_hat(phi)
+Computes the spherical unit vector
+\hat{\boldsymbol{\varphi}}(\theta, \varphi)
+as defined in (1)
+Input
+phi (same shape as theta, tf.float) – Azimuth angles
+\varphi
+[rad]
+Output
+theta_hat (phi.shape + [3], tf.float) – Vector
+\hat{\boldsymbol{\varphi}}(\theta, \varphi)
+### sionna.rt.rotate(p, angles)
+Rotates points p by the angles according to the 3D rotation defined in (3)
+Input
+p ([…,3], tf.float) – Points to rotate
+angles ([…, 3]) – Angles for the rotations [rad]. The last dimension corresponds to the angles
+(\alpha,\beta,\gamma)
+that define rotations about the axes
+(z, y, x)
+, respectively.
+Output
+[…,3] – Rotated points p
+### sionna.rt.rotation_matrix(angles)
+Computes rotation matrices as defined in (3)
+The closed-form expression in (7.1-4) [TR38901] is used.
+Input
+angles ([…,3], tf.float) – Angles for the rotations [rad]. The last dimension corresponds to the angles
+(\alpha,\beta,\gamma)
+that define rotations about the axes
+(z, y, x)
+, respectively.
+Output
+[…,3,3], tf.float – Rotation matrices
+### sionna.rt.rot_mat_from_unit_vecs(a, b)
+Computes Rodrigues` rotation formula (6)
+Input
+a ([…,3], tf.float) – First unit vector
+b ([…,3], tf.float) – Second unit vector
+Output
+[…,3,3], tf.float – Rodrigues’ rotation matrix
+### sionna.rt.r_hat(theta, phi)
+Computes the spherical unit vetor
+\hat{\mathbf{r}}(\theta, \phi)
+as defined in (1)
+Input
+theta (arbitrary shape, tf.float) – Zenith angles
+\theta
+[rad]
+phi (same shape as theta, tf.float) – Azimuth angles
+\varphi
+[rad]
+Output
+rho_hat (phi.shape + [3], tf.float) – Vector
+\hat{\mathbf{r}}(\theta, \phi)
+on unit sphere
+### sionna.rt.sample_points_on_hemisphere(normals, num_samples=1)
+Randomly sample points on hemispheres defined by their normal vectors
+Input
+normals ([batch_size, 3], tf.float) – Normal vectors defining hemispheres
+num_samples (int) – Number of random samples to draw for each hemisphere defined by its normal vector. Defaults to 1.
+Output
+points ([batch_size, num_samples, 3], tf.float or [batch_size, 3], tf.float if num_samples=1.) – Random points on the hemispheres
+### sionna.rt.theta_hat(theta, phi)
+Computes the spherical unit vector
+\hat{\boldsymbol{\theta}}(\theta, \varphi)
+as defined in (1)
+Input
+theta (arbitrary shape, tf.float) – Zenith angles
+\theta
+[rad]
+phi (same shape as theta, tf.float) – Azimuth angles
+φ
+[rad]
+Output
+theta_hat (phi.shape + [3], tf.float) – Vector
+\hat{\boldsymbol{\theta}}(\theta, \varphi)
+### sionna.rt.theta_phi_from_unit_vec(v)
+Computes zenith and azimuth angles
+(\theta,\varphi)
+from unit-norm vectors as described in (2)
+Input
+v ([…,3], tf.float) – Tensor with unit-norm vectors in the last dimension
+Output
+theta ([…], tf.float) – Zenith angles
+\theta
+phi ([…], tf.float) – Azimuth angles
+\varphi
+References:
+Balanis97(1,2)
+Balanis, “Antenna Theory: Analysis and Design,” 2nd Edition, John Wiley & Sons, 1997.
+ITUR_P2040_2(1,2)
+ITU-R, “Effects of building materials and structures on radiowave propagation above about 100 MHz“, Recommendation ITU-R P.2040-2
+SurfaceIntegral
+Wikipedia, “Surface integral(https://en.wikipedia.org/wiki/Surface_integral)”, accessed Jun. 22, 2023.
+Previous
+Next
+© Copyright 2021-2023 NVIDIA CORPORATION.
+Built with Sphinx using a theme provided by Read the Docs.

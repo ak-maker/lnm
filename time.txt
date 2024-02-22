@@ -1,0 +1,40 @@
+IA_tutorials_for_experts_MIMO OFDM Transmissions over the CDL Channel Model: 2541.7572553157806 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt
+IA_tutorials_for_experts_Neural Receiver for OFDM SIMO Systems: 5664.880344152451 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_2.txt
+IA_tutorials_for_experts_Realistic Multiuser MIMO OFDM Simulations: 6257.8944211006165 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_2.txt, data_gen_part_2.txt
+IA_tutorials_for_experts_OFDM MIMO Channel Estimation and Detection: 6257.8944211006165 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_2.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_2.txt, data_gen_part_3.txt
+IA_tutorials_for_experts_Introduction to Iterative Detection and Decoding: 6257.8944211006165 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_2.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_2.txt, data_gen_part_3.txt
+IA_tutorials_for_experts_End-to-end Learning with Autoencoders: 7167.3781208992 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_2.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_2.txt, data_gen_part_3.txt, data_gen_part_2.txt
+IA_tutorials_for_experts_Weighted Belief Propagation Decoding: 7752.856698274612 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_2.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_2.txt, data_gen_part_3.txt, data_gen_part_2.txt, data_gen_part_1.txt
+IA_tutorials_for_experts_Channel Models from Datasets: 7957.956758975983 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_2.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_2.txt, data_gen_part_3.txt, data_gen_part_2.txt, data_gen_part_1.txt
+IA_tutorials_for_experts_Using the DeepMIMO Dataset with Sionna: 7957.956758975983 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_2.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_2.txt, data_gen_part_3.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_1.txt
+IA_tutorials_ray_tracing_Introduction to Sionna RT.txt: 8608.360249996185 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_2.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_2.txt, data_gen_part_3.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_1.txt, data_gen_part_1.txt, data_gen_part_3.txt
+IA_tutorials_ray_tracing_Tutorial on Diffraction: 9501.052985668182 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_2.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_2.txt, data_gen_part_3.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_1.txt, data_gen_part_1.txt, data_gen_part_3.txt
+IA_tutorials_ray_tracing_Tutorial on Scattering: 9501.052985668182 except data_gen_part_1.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_2.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_2.txt, data_gen_part_3.txt, data_gen_part_2.txt, data_gen_part_1.txt, data_gen_part_1.txt, data_gen_part_1.txt, data_gen_part_3.txt, data_gen_part_1.txt
+IA_made with sionna: 447.69197249412537
+IA_quickstart_helloworld: 178.06275534629822
+IA_quickstart_installation.txt: 270.1264762878418
+
+IA_api_configuration: 129.20753955841064
+IA_api_utility_functions: 439.4061977863312 except data_gen_part_1.txt
+IA_api_signal: 760.8215367794037 except data_gen_part_1.txt, data_gen_part_2.txt
+IA_api_ray_tracing: 760.8215367794037 except data_gen_part_1.txt, data_gen_part_2.txt, data_gen_part_3.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_6.txt
+IA_api_5G_NR: 2809.98597240448 except data_gen_part_3.txt
+IA_api_Multiple-Input Multiple-Output (MIMO): 4644.112221956253 except data_gen_part_2.txt, data_gen_part_3.txt
+IA_api_Orthogonal Frequency-Division Multiplexing (OFDM): 4644.112221956253 except data_gen_part_1.txt, data_gen_part_2.txt, data_gen_part_3.txt
+IA_api_channel_discrete: 5256.032722949982
+IA_api_channel_optical: 6173.806302785873
+IA_api_channel_wireless: 7408.445075035095 except data_gen_part_2.txt, data_gen_part_3.txt, data_gen_part_4.txt, data_gen_part_5.txt, data_gen_part_6.txt, data_gen_part_8.txt
+IA_api_channel: 7898.36484336853
+IA_api_mapping: 8463.075917959213 except data_gen_part_1.txt
+IA_api_forward_error_correction_FEC_utility_functions: 8725.029907464981 except data_gen_part_1.txt
+IA_api_forward_error_correction_FEC_scrambling: 9377.826468229294
+IA_api_forward_error_correction_FEC_interleaving: 9718.779701709747
+IA_api_forward_error_correction_FEC_cyclic_redundancy_check: 10082.908454179764
+IA_api_forward_error_correction_FEC_turbo_codes: 10720.530653238297
+IA_api_forward_error_correction_FEC_convolutional_codes: 11129.46622633934
+IA_api_forward_error_correction_FEC_Polar_Codes: 11716.53363108635 except data_gen_part_1.txt
+IA_api_forward_error_correction_FEC_Low-Density_Parity-Check_LDPC: 11716.53363108635 except data_gen_part_1.txt
+IA_api_forward_error_correction_FEC_linear_codes: 12199.80191731453
+IA_api_forward_error_correction_FEC: 13273.714141368866
+IA_api.txt: 14325.776022434235
+IA_primer_on_electromagnetics: 17369.90456199646

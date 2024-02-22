@@ -1,0 +1,374 @@
+# 5G NR
+
+## PUSCH
+### class: sionna.nr.PUSCHPilotPattern(pusch_configs, dtype=tf.complex64)
+### class: sionna.nr.PUSCHPrecoder(precoding_matrices, dtype=tf.complex64, **kwargs)
+### class: sionna.nr.PUSCHReceiver(pusch_transmitter, channel_estimator=None, mimo_detector=None, tb_decoder=None, return_tb_crc_status=False, stream_management=None, input_domain='freq', l_min=None, dtype=tf.complex64, **kwargs)
+### class: sionna.nr.PUSCHTransmitter(pusch_configs, return_bits=True, output_domain='freq', dtype=tf.complex64, verbose=False, **kwargs)
+## Transport Block
+### class: sionna.nr.TBConfig(**kwargs)
+
+# 5G NR
+
+This module provides layers and functions to support simulations of 5G NR compliant features, in particular, the physical uplink shared channel (PUSCH). It provides implementations of a subset of the physical layer functionalities as described in the 3GPP specifications [3GPP38211], [3GPP38212], and [3GPP38214].
+
+The best way to discover this module’s components is by having a look at the 5G NR PUSCH Tutorial.
+
+The following code snippet shows how you can make standard-compliant simulations of the 5G NR PUSCH with a few lines of code:
+
+# Create a PUSCH configuration with default settings
+
+pusch_config = PUSCHConfig()
+
+
+
+# Instantiate a PUSCHTransmitter from the PUSCHConfig
+
+pusch_transmitter = PUSCHTransmitter(pusch_config)
+
+
+
+# Create a PUSCHReceiver using the PUSCHTransmitter
+
+pusch_receiver = PUSCHReceiver(pusch_transmitter)
+
+
+
+# AWGN channel
+
+channel = AWGN()
+
+
+
+# Simulate transmissions over the AWGN channel
+
+batch_size = 16
+
+no = 0.1 # Noise variance
+
+
+
+x, b = pusch_transmitter(batch_size) # Generate transmit signal and info bits
+
+
+
+y = channel([x, no]) # Simulate channel output
+
+
+
+b_hat = pusch_receiver([x, no]) # Recover the info bits
+
+
+
+# Compute BER
+
+print("BER:", compute_ber(b, b_hat).numpy())
+
+The PUSCHTransmitter and PUSCHReceiver provide high-level abstractions of all required processing blocks. You can easily modify them according to your needs.
+
+### class: sionna.nr.PUSCHPilotPattern(pusch_configs, dtype=tf.complex64)
+Class defining a pilot pattern for NR PUSCH.
+This class defines a PilotPattern that is used to configure an OFDM ResourceGrid.
+For every transmitter, a separte PUSCHConfig needs to be provided from which the pilot pattern will be created.
+Parameters
+pusch_configs (instance or list of PUSCHConfig) – PUSCH Configurations according to which the pilot pattern will created. One configuration is needed for each transmitter.
+dtype (tf.Dtype) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+property
+mask
+Mask of the pilot pattern
+property
+normalize
+Returns or sets the flag indicating if the pilots are normalized or not
+property
+num_data_symbols
+Number of data symbols per transmit stream.
+property
+num_effective_subcarriers
+Number of effectvie subcarriers
+property
+num_ofdm_symbols
+Number of OFDM symbols
+property
+num_pilot_symbols
+Number of pilot symbols per transmit stream.
+property
+num_streams_per_tx
+Number of streams per transmitter
+property
+num_tx
+Number of transmitters
+property
+pilots
+Returns or sets the possibly normalized tensor of pilot symbols. If pilots are normalized, the normalization will be applied after new values for pilots have been set. If this is not the desired behavior, turn normalization off.
+show(tx_ind=None, stream_ind=None, show_pilot_ind=False)
+Visualizes the pilot patterns for some transmitters and streams.
+Input
+tx_ind (list, int) – Indicates the indices of transmitters to be included. Defaults to None, i.e., all transmitters included.
+stream_ind (list, int) – Indicates the indices of streams to be included. Defaults to None, i.e., all streams included.
+show_pilot_ind (bool) – Indicates if the indices of the pilot symbols should be shown.
+Output
+list (matplotlib.figure.Figure) – List of matplot figure objects showing each the pilot pattern from a specific transmitter and stream.
+property
+trainable
+Returns if pilots are trainable or not
+### class: sionna.nr.PUSCHPrecoder(precoding_matrices, dtype=tf.complex64, **kwargs)
+Precodes a batch of modulated symbols mapped onto a resource grid for PUSCH transmissions. Each transmitter is assumed to have its own precoding matrix.
+Parameters
+precoding_matrices (list, [num_tx, num_antenna_ports, num_layers] tf.complex) – List of precoding matrices, one for each transmitter. All precoding matrices must have the same shape.
+dtype (One of [tf.complex64, tf.complex128]) – Dtype of inputs and outputs. Defaults to tf.complex64.
+Input
+[batch_size, num_tx, num_layers, num_symbols_per_slot, num_subcarriers] – Batch of resource grids to be precoded
+Output
+[batch_size, num_tx, num_antenna_ports, num_symbols_per_slot, num_subcarriers] – Batch of precoded resource grids
+### class: sionna.nr.PUSCHReceiver(pusch_transmitter, channel_estimator=None, mimo_detector=None, tb_decoder=None, return_tb_crc_status=False, stream_management=None, input_domain='freq', l_min=None, dtype=tf.complex64, **kwargs)
+This layer implements a full receiver for batches of 5G NR PUSCH slots sent by multiple transmitters. Inputs can be in the time or frequency domain. Perfect channel state information can be optionally provided. Different channel estimatiors, MIMO detectors, and transport decoders can be configured.
+The layer combines multiple processing blocks into a single layer as shown in the following figure. Blocks with dashed lines are optional and depend on the configuration.
+If the input_domain equals “time”, the inputs
+\mathbf{y}
+are first transformed to resource grids with the OFDMDemodulator. Then channel estimation is performed, e.g., with the help of the PUSCHLSChannelEstimator. If channel_estimator is chosen to be “perfect”, this step is skipped and the input
+\mathbf{h}
+is used instead. Next, MIMO detection is carried out with an arbitrary OFDMDetector. The resulting LLRs for each layer are then combined to transport blocks with the help of the LayerDemapper. Finally, the transport blocks are decoded with the TBDecoder.
+Parameters
+pusch_transmitter (PUSCHTransmitter) – Transmitter used for the generation of the transmit signals
+channel_estimator (BaseChannelEstimator, “perfect”, or None) – Channel estimator to be used. If None, the PUSCHLSChannelEstimator with linear interpolation is used. If “perfect”, no channel estimation is performed and the channel state information h must be provided as additional input. Defaults to None.
+mimo_detector (OFDMDetector or None) – MIMO Detector to be used. If None, the LinearDetector with LMMSE detection is used. Defaults to None.
+tb_decoder (TBDecoder or None) – Transport block decoder to be used. If None, the TBDecoder with its default settings is used. Defaults to None.
+return_tb_crc_status (bool) – If True, the status of the transport block CRC is returned as additional output. Defaults to False.
+stream_management (StreamManagement or None) – Stream management configuration to be used. If None, it is assumed that there is a single receiver which decodes all streams of all transmitters. Defaults to None.
+input_domain (str, one of ["freq", "time"]) – Domain of the input signal. Defaults to “freq”.
+l_min (int or None) – Smallest time-lag for the discrete complex baseband channel. Only needed if input_domain equals “time”. Defaults to None.
+dtype (tf.Dtype) – Datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+Input
+(y, h, no) – Tuple:
+y ([batch size, num_rx, num_rx_ant, num_ofdm_symbols, fft_size], tf.complex or [batch size, num_rx, num_rx_ant, num_time_samples + l_max - l_min], tf.complex) – Frequency- or time-domain input signal
+h ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_ofdm_symbols, num_subcarriers], tf.complex or [batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_time_samples + l_max - l_min, l_max - l_min + 1], tf.complex) – Perfect channel state information in either frequency or time domain (depending on input_domain) to be used for detection. Only required if channel_estimator equals “perfect”.
+no ([batch_size, num_rx, num_rx_ant] or only the first n>=0 dims, tf.float) – Variance of the AWGN
+Output
+b_hat ([batch_size, num_tx, tb_size], tf.float) – Decoded information bits
+tb_crc_status ([batch_size, num_tx], tf.bool) – Transport block CRC status
+Example
+>>> pusch_config = PUSCHConfig()
+>>> pusch_transmitter = PUSCHTransmitter(pusch_config)
+>>> pusch_receiver = PUSCHReceiver(pusch_transmitter)
+>>> channel = AWGN()
+>>> x, b = pusch_transmitter(16)
+>>> no = 0.1
+>>> y = channel([x, no])
+>>> b_hat = pusch_receiver([x, no])
+>>> compute_ber(b, b_hat)
+<tf.Tensor: shape=(), dtype=float64, numpy=0.0>
+property
+resource_grid
+OFDM resource grid underlying the PUSCH transmissions
+### class: sionna.nr.PUSCHTransmitter(pusch_configs, return_bits=True, output_domain='freq', dtype=tf.complex64, verbose=False, **kwargs)
+This layer generates batches of 5G NR PUSCH slots for multiple transmitters with random or provided payloads. Frequency- or time-domain outputs can be generated.
+It combines multiple processing blocks into a single layer as shown in the following figure. Blocks with dashed lines are optional and depend on the configuration.
+Information bits
+\mathbf{b}
+that are either randomly generated or provided as input are encoded into a transport block by the TBEncoder. The encoded bits are then mapped to QAM constellation symbols by the Mapper. The LayerMapper splits the modulated symbols into different layers which are then mapped onto OFDM resource grids by the ResourceGridMapper. If precoding is enabled in the PUSCHConfig, the resource grids are further precoded so that there is one for each transmitter and antenna port. If output_domain equals “freq”, these are the outputs
+\mathbf{x}
+. If output_domain is chosen to be “time”, the resource grids are transformed into time-domain signals by the OFDMModulator.
+Parameters
+pusch_configs (instance or list of PUSCHConfig) – PUSCH Configurations according to which the resource grid and pilot pattern will created. One configuration is needed for each transmitter.
+return_bits (bool) – If set to True, the layer generates random information bits to be transmitted and returns them together with the transmit signal. Defaults to True.
+output_domain (str, one of ["freq", "time"]) – The domain of the output. Defaults to “freq”.
+dtype (One of [tf.complex64, tf.complex128]) – Dtype of inputs and outputs. Defaults to tf.complex64.
+verbose (bool) – If True, additional parameters are printed during initialization. Defaults to False.
+Input
+One of
+batch_size (int) – Batch size of random transmit signals to be generated, if return_bits is True.
+b ([batch_size, num_tx, tb_size], tf.float) – Information bits to be transmitted, if return_bits is False.
+Output
+x ([batch size, num_tx, num_tx_ant, num_ofdm_symbols, fft_size], tf.complex or [batch size, num_tx, num_tx_ant, num_time_samples], tf.complex) – Transmit signal in either frequency or time domain, depending on output_domain.
+b ([batch_size, num_tx, tb_size], tf.float) – Transmitted information bits. Only returned if return_bits is True.
+Example
+>>> pusch_config = PUSCHConfig()
+>>> pusch_transmitter = PUSCHTransmitter(pusch_config)
+>>> x, b = pusch_transmitter(16)
+>>> print("Shape of x:", x.shape)
+Shape of x: (16, 1, 1, 14, 48)
+>>> print("Shape of b:", b.shape)
+Shape of b: (16, 1, 1352)
+property
+pilot_pattern
+Aggregate pilot pattern of all transmitters
+property
+resource_grid
+OFDM resource grid underlying the PUSCH transmissions
+show()[source]
+Print all properties of the PUSCHConfig and children
+## Transport Block
+### class: sionna.nr.TBConfig(**kwargs)
+The TBConfig objects sets parameters related to the transport block encoding, as described in TS 38.214 [3GPP38214].
+All configurable properties can be provided as keyword arguments during the initialization or changed later.
+The TBConfig is configured by selecting the modulation and coding scheme (MCS) tables and index.
+Example
+>>> tb_config = TBConfig(mcs_index=13)
+>>> tb_config.mcs_table = 3
+>>> tb_config.channel_type = "PUSCH"
+>>> tb_config.show()
+The following tables provide an overview of the corresponding coderates and modulation orders.
+Table 1 MCS Index Table 1 (Table 5.1.3.1-1 in [3GPP38214])
+MCS Index I_{MCS}       Modulation Order Q_m            Target Coderate R\times[1024]       Spectral Efficiency
+0                       2                               120                                 0.2344
+1                       2                               157                                 0.3066
+2                       2                               193                                 0.3770
+3                       2                               251                                 0.4902
+4                       2                               308                                 0.6016
+5                       2                               379                                 0.7402
+6                       2                               449                                 0.8770
+7                       2                               526                                 1.0273
+8                       2                               602                                 1.1758
+9                       2                               679                                 1.3262
+10                      4                               340                                 1.3281
+11                      4                               378                                 1.4766
+12                      4                               434                                 1.6953
+13                      4                               490                                 1.9141
+14                      4                               553                                 2.1602
+15                      4                               616                                 2.4063
+16                      4                               658                                 2.5703
+17                      6                               438                                 2.5664
+18                      6                               466                                 2.7305
+19                      6                               517                                 3.0293
+20                      6                               567                                 3.3223
+21                      6                               616                                 3.6094
+22                      6                               666                                 3.9023
+23                      6                               719                                 4.2129
+24                      6                               772                                 4.5234
+25                      6                               822                                 4.8164
+26                      6                               873                                 5.1152
+27                      6                               910                                 5.3320
+28                      6                               948                                 5.5547
+
+
+Table 2 MCS Index Table 2 (Table 5.1.3.1-2 in [3GPP38214])
+MCS Index I_{MCS}       Modulation Order Q_m            Target Coderate R\times[1024]       Spectral Efficiency
+0                       2                               120                                 0.2344
+1                       2                               193                                 0.3770
+2                       2                               308                                 0.6016
+3                       2                               449                                 0.8770
+4                       2                               602                                 1.1758
+5                       4                               378                                 1.4766
+6                       4                               434                                 1.6953
+7                       4                               490                                 1.9141
+8                       4                               553                                 2.1602
+9                       4                               616                                 2.4063
+10                      4                               658                                 2.5703
+11                      6                               466                                 2.7305
+12                      6                               517                                 3.0293
+13                      6                               567                                 3.3223
+14                      6                               616                                 3.6094
+15                      6                               666                                 3.9023
+16                      6                               719                                 4.2129
+17                      6                               772                                 4.5234
+18                      6                               822                                 4.8164
+19                      6                               873                                 5.1152
+20                      8                               682.5                               5.3320
+21                      8                               711                                 5.5547
+22                      8                               754                                 5.8906
+23                      8                               797                                 6.2266
+24                      8                               841                                 6.5703
+25                      8                               885                                 6.9141
+26                      8                               916.5                               7.1602
+27                      8                               948                                 7.4063
+
+Table 3 MCS Index Table 3 (Table 5.1.3.1-3 in [3GPP38214])
+MCS Index I_{MCS}       Modulation Order Q_m            Target Coderate R\times[1024]       Spectral Efficiency
+0                       2                               30                                  0.0586
+1                       2                               40                                  0.0781
+2                       2                               50                                  0.0977
+3                       2                               64                                  0.1250
+4                       2                               78                                  0.1523
+5                       2                               99                                  0.1934
+6                       2                               120                                 0.2344
+7                       2                               157                                 0.3066
+8                       2                               193                                 0.3770
+9                       2                               251                                 0.4902
+10                      2                               308                                 0.6016
+11                      2                               379                                 0.7402
+12                      2                               449                                 0.8770
+13                      2                               526                                 1.0273
+14                      2                               602                                 1.1758
+15                      4                               340                                 1.3281
+16                      4                               378                                 1.4766
+17                      4                               434                                 1.6953
+18                      4                               490                                 1.9141
+19                      4                               553                                 2.1602
+20                      4                               616                                 2.4063
+21                      6                               438                                 2.5564
+22                      6                               466                                 2.7305
+23                      6                               517                                 3.0293
+24                      6                               567                                 3.3223
+25                      6                               661                                 3.6094
+26                      6                               666                                 3.9023
+27                      6                               719                                 4.2129
+28                      6                               772                                 4.5234
+
+Table 4 MCS Index Table 4 (Table 5.1.3.1-4 in [3GPP38214])
+MCS Index I_{MCS}       Modulation Order Q_m            Target Coderate R\times[1024]       Spectral Efficiency
+0                       2                               120                                 0.2344
+1                       2                               193                                 0.3770
+2                       2                               449                                 0.8770
+3                       4                               378                                 1.4766
+4                       4                               490                                 1.9141
+5                       4                               616                                 2.4063
+6                       6                               466                                 2.7305
+7                       6                               517                                 3.0293
+8                       6                               567                                 3.3223
+9                       6                               616                                 3.6094
+10                      6                               666                                 3.9023
+11                      6                               719                                 4.2129
+12                      6                               772                                 4.5234
+13                      6                               822                                 4.8154
+14                      6                               873                                 5.1152
+15                      8                               682.5                               5.3320
+16                      8                               711                                 5.5547
+17                      8                               754                                 5.8906
+18                      8                               797                                 6.2266
+19                      8                               841                                 6.5703
+20                      8                               885                                 6.9141
+21                      8                               916.5                               7.1602
+22                      8                               948                                 7.4063
+23                      10                              805.5                               7.8662
+24                      10                              853                                 8.3301
+25                      10                              900.5                               8.7939
+26                      10                              948                                 9.2578
+
+property
+channel_type
+5G NR physical channel type. Valid choices are “PDSCH” and “PUSCH”.
+check_config()[source]
+Test if configuration is valid
+property
+mcs_index
+Modulation and coding scheme (MCS) index (denoted as
+I_{MCS}
+in [3GPP38214])
+property
+mcs_table
+Indicates which MCS table from [3GPP38214] to use. Starts with “1”.
+property
+n_id
+Data scrambling initialization
+n
+ID
+. Data Scrambling ID related to cell id and provided by higher layer. If None, the PUSCHConfig will automatically set
+n_\text{ID}=N_\text{ID}^{cell}
+.
+Type
+int, None (default), [0, 1023]
+property
+num_bits_per_symbol
+Modulation order as defined by the selected MCS
+Type
+int, read-only
+property
+target_coderate
+Target coderate of the TB as defined by the selected MCS
+Type
+float, read-only
+property
+tb_scaling
+TB scaling factor for PDSCH as defined in [3GPP38214] Tab. 5.1.3.2-2.
+Type
+float, 1. (default), read-only

@@ -1,0 +1,288 @@
+### 1. INSTRUCTION:
+Explain what a cyclic redundancy check (CRC) is and describe its purpose in data communication.
+
+**ANSWER:**
+
+A Cyclic Redundancy Check (CRC) is an error-detecting code commonly used in digital networks and storage devices to detect accidental changes to raw data. Its purpose is to ensure the integrity of data during transmission or storage. In the context of data communication, CRCs are used to detect errors that may have been introduced during the transmission of data from one system to another.
+
+The process involves appending a sequence of redundancy bits, or a CRC code, to the end of a block of data (the message). This CRC code is derived from the block of data by performing a predetermined calculation. Once the data block furnished with the CRC has been transmitted to its destination, the receiver carries out the same calculation on the received data and compares its CRC code with the one attached by the sender. If the CRC codes match, it is assumed that the block of data has not been corrupted; otherwise, it signals that an error has occurred.
+
+In the context provided, the `CRCEncoder` and `CRCDecoder` are classes that can be implemented to add and verify CRC in a data communication process. The `CRCEncoder` class accepts input data and encodes it with the specified number of CRC parity bits, determined by the `crc_degree` parameter. This can correspond to a variety of standard polynomials known for their error-detecting capabilities, such as CRC24B or CRC16; the exact polynomial used affects the number of parity bits and the accuracy of the error detection.
+
+The `CRCDecoder` takes encoded data as input and checks whether the CRC is valid, indicating whether the data has been altered in transit. If the CRC is valid, the data is considered intact; otherwise, errors are detected.
+
+The `CRCEncoder` can be integrated as a layer in a Keras model, which is a popular framework for building neural network architectures in Python. This integration implies that CRC encoding can be part of a larger process of preparing data for machine learning tasks, in which maintaining data integrity is crucial.
+
+By utilizing CRC encoders and decoders in 5G NR (New Radio) systems, which requires very reliable data communication, potential transmission errors can be detected swiftly, thereby ensuring high integrity of the data exchanged over the network.
+
+### 2. INSTRUCTION:
+Create an instance of the `CRCEncoder` class with "CRC24A" as the degree of the CRC polynomial according to the 3GPP 5G NR standard, and set the output data type to TensorFlow's `tf.float32`.
+
+**ANSWER:**
+
+Based on the provided context, you can create an instance of the `CRCEncoder` class with "CRC24A" as the CRC polynomial and set the output data type to TensorFlow's `tf.float32` using the following Python code:
+
+```python
+import tensorflow as tf
+from sionna.fec.crc import CRCEncoder
+
+# Create an instance of CRCEncoder with "CRC24A" CRC polynomial and output_dtype set to tf.float32
+encoder = CRCEncoder(crc_degree="CRC24A", output_dtype=tf.float32)
+```
+
+In the code above, we are importing the necessary modules from TensorFlow and Sionna, then creating an instance of the `CRCEncoder` class with the specified parameters. The `CRCEncoder` will use a CRC polynomial according to the 3GPP 5G NR standard. The output data type of the encoder is set to TensorFlow's `tf.float32` by passing it as an argument to the constructor.
+
+### 3. INSTRUCTION:
+Instantiate a `CRCDecoder` class by linking it to the previously created `CRCEncoder` instance, ensuring that the two are compatible for encoding and decoding operations.
+
+**ANSWER:**
+
+Based on the provided context, here is a piece of Python code to instantiate a `CRCDecoder` class and link it to the previously created `CRCEncoder` instance:
+
+```python
+# Assuming the CRCEncoder instance was previously created with this line of code:
+# encoder = CRCEncoder(crc_degree="CRC24A")
+
+# Instantiate the CRCDecoder class by passing the already created encoder to it
+decoder = CRCDecoder(crc_encoder=encoder)
+
+# Now the encoder and decoder are linked and compatible for encoding and decoding operations.
+```
+
+This code ensures that both the `CRCEncoder` instance and the `CRCDecoder` instance use the same CRC polynomial, as the decoder is instantiated with the existing encoder instance which defines the CRC settings.
+
+### 4. INSTRUCTION:
+Define a 2+D tensor with arbitrary shape, where the last dimension represents the number of information bits (k), and assign it to a variable named `u`, which will act as the input bit sequence to be encoded with CRC.
+
+**ANSWER:**
+
+Based on the given context, we need to define a tensor `u` that contains information bits. The last dimension of this tensor will represent the number of information bits, which is denoted by `k`. The context does not provide a specific value for `k` nor the shape of the tensor before the last dimension. Therefore, we will assume `k` is a positive integer and the shape before the last dimension can be any size.
+
+Here's an example of how to define a 2+D tensor in TensorFlow with an arbitrary shape where the last dimension represents the number of information bits `(k)`:
+
+```python
+import tensorflow as tf
+
+# k is the number of information bits, let's arbitrarily choose k = 10 for this example
+k = 10
+
+# Let's define an arbitrary shape for the other dimensions, e.g., we choose the tensor to be 3D with shape (batch_size, sequence_length, k)
+# We will use placeholders for batch_size and sequence_length, and they can take any positive integer value
+batch_size = 5  # e.g., 5 sequences in a batch
+sequence_length = 8  # e.g., each sequence has 8 timesteps
+
+# Now we define the tensor u with the given shape and with normally distributed values
+u = tf.random.normal((batch_size, sequence_length, k))
+
+# 'u' is now a 3D tensor (2+D where the + denotes the extra batch and sequence_length dimension) with the last dimension representing the k information bits.
+```
+
+In this example, `u` would act as the input bit sequence to be encoded with CRC when you feed it to the `CRCEncoder` instance. Make sure you adjust `batch_size`, `sequence_length`, and `k` according to the actual requirements of your application.
+
+### 5. INSTRUCTION:
+Use the `CRCEncoder` instance to encode the input tensor `u` and generate a CRC-added output tensor, assigning it to a variable named `c` that includes both the information bits and CRC parity bits.
+
+**ANSWER:**
+
+Based on the provided context, to use the `CRCEncoder` instance to encode the input tensor `u` and generate a CRC-added output tensor stored in a variable named `c`, you would use the following Python code snippet assuming you have a tensor `u` containing your information bits:
+
+```python
+# Assuming the CRCEncoder instance is already created and named "encoder"
+# and the input tensor u is already defined
+
+# Use the encoder to encode the input tensor u and include CRC parity bits
+c = encoder(u)
+```
+
+After executing this snippet, the variable `c` will contain both the original information bits from the input tensor `u` and the computed CRC parity bits, as per the instructions and the context provided.
+
+### 6. INSTRUCTION:
+Explain the shape difference between the input tensor `u` and the encoded output tensor `c`, particularly focusing on the addition of CRC parity bits as determined by the CRC degree.
+
+**ANSWER:**
+
+The input tensor `u` and the encoded output tensor `c` differ in shape primarily due to the addition of CRC parity bits that enhance the detection of errors in the data transmission process. The addition of these CRC parity bits is directly related to the `crc_degree` parameter specified when creating an instance of the `CRCEncoder`.
+
+The input tensor `u` represents the original sequence of information bits that need to be encoded. It has a shape `[..., k]`, where `k` is the number of information bits per codeword, and the ellipsis (`...`) denotes any number of preceding dimensions.
+
+The output tensor `c`, which emerges after processing the input tensor `u` through the `CRCEncoder`, includes both the original information bits and the added CRC parity bits. Its shape is `[..., k+k_crc]`, where `k_crc` is equal to the degree of the CRC polynomial used, such as 24 for "CRC24A", 16 for "CRC16", and so on, as given by the `crc_degree` parameter. This number, `k_crc`, represents the number of parity bits added by the CRC method to the original data.
+
+To summarize, the difference in shape between the input tensor `u` and the encoded output tensor `c` results from the additional `k_crc` CRC parity bits placed at the end of the original information sequence. If `k` is the length of the input tensor (representing the number of information bits) and `k_crc` is the number of CRC parity bits added based on the `crc_degree` (representing the length of the error-checking code), then the difference in length between the input and output tensors is precisely `k_crc`.
+
+For example, if an instance of `CRCEncoder` is created with `crc_degree="CRC24A"`, each codeword in the output tensor will have 24 additional bits compared to the input tensor. So if the input tensor `u` has the shape `[..., 100]`, the output tensor `c` will have the shape `[..., 124]`, with the last 24 bits in each codeword serving as error-detecting parity bits.
+
+### 7. INSTRUCTION:
+Decode the encoded tensor `c` using the `CRCDecoder` instance and retrieve both the original information bits tensor, devoid of parity bits, and a boolean tensor indicating CRC validation successes, assigning them respectively to variables `u_hat` and `crc_valid`.
+
+**ANSWER:**
+
+Based on the provided context, to decode the encoded tensor `c` using the `CRCDecoder` instance and retrieve both the original information bits tensor, devoid of parity bits, and a boolean tensor indicating CRC validation successes, assigning them respectively to variables `u_hat` and `crc_valid`, you can follow this code snippet:
+
+```python
+# Assuming you already have the encoded tensor `c` and an instance of CRCDecoder `decoder`
+
+# Decode the tensor `c` using the `CRCDecoder` instance
+u_hat, crc_valid = decoder(c)
+```
+
+The variables `u_hat` and `crc_valid` now hold the decoded information bits without the CRC parity bits, and a boolean tensor indicating the success of CRC validation for each codeword respectively.
+
+### 8. INSTRUCTION:
+List the available CRC polynomials specified in Section 5.1 of the ETSI 3GPP TS 38.212 standard and instruct on how to specify a different CRC polynomial for a new `CRCEncoder` instance.
+
+**ANSWER:**
+
+Based on the provided context, the available CRC polynomials specified in Section 5.1 of the ETSI 3GPP TS 38.212 standard are:
+
+- CRC24A
+- CRC24B
+- CRC24C
+- CRC16
+- CRC11
+- CRC6
+
+These represent the names of the CRC polynomials that can be used with the `CRCEncoder` class to encode data with a cyclic redundancy check.
+
+If you want to specify a different CRC polynomial for a new `CRCEncoder` instance that is not listed above, you would have to follow these general steps, keeping in mind that the specific implementation details could vary depending on the software or library you are using:
+
+1. Identify the polynomial you wish to use. Typically, CRC polynomials are provided in a hexadecimal or binary representation.
+2. Confirm whether the software library you are using supports custom polynomials. If not, you may need to extend the library or use a different one that allows this level of customization.
+3. If the library supports custom CRC polynomials, find the function or method that allows you to define a new polynomial, and pass the polynomial as an argument. This could involve setting an attribute, calling a method, or passing it as a parameter when initializing the `CRCEncoder`.
+
+Since the context provided does not include information about using polynomials outside the standard list, I can't give you a precise instruction on how to specify a different CRC polynomial. However, you would typically need to understand and edit the internal workings of the CRCEncoder class to achieve this or extend the current implementation to accept custom polynomials.
+
+And here is an example of how you would generally create an instance of the `CRCEncoder` using one of the predefined polynomials:
+
+```python
+import tensorflow as tf
+from sionna.fec.crc import CRCEncoder
+
+# Assume we want to use the CRC24A polynomial
+encoder = CRCEncoder(crc_degree="CRC24A", output_dtype=tf.float32)  # this line specifies the polynomial CRC24A
+```
+
+Be sure to refer to the library documentation or source code for accurate instructions on implementing custom polynomials if that feature is available.
+
+### 9. INSTRUCTION:
+Show how to integrate `CRCEncoder` and `CRCDecoder` classes into a Keras model, demonstrating how these classes inherit from the Keras layer class.
+
+**ANSWER:**
+
+To integrate `CRCEncoder` and `CRCDecoder` into a Keras model, you must treat them as layers within your model. Both classes are designed to inherit from Keras layer class, allowing them to be seamlessly added to a Keras sequential or functional model. Below is a demonstration of how you can create such a model with these layers:
+
+```python
+import tensorflow as tf
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input
+from sionna.fec.crc import CRCEncoder, CRCDecoder
+
+# Define the number of information bits and CRC degree (e.g., using CRC24A)
+num_info_bits = 100
+crc_degree = "CRC24A"
+
+# Instantiate the CRCEncoder
+encoder = CRCEncoder(crc_degree=crc_degree)
+
+# Instantiate the CRCDecoder with the encoder
+decoder = CRCDecoder(crc_encoder=encoder)
+
+# Build the Keras Model
+# Define the input layer with shape (None, num_info_bits), None indicates the batch size can be variable
+input_layer = Input(shape=(num_info_bits,), dtype=tf.float32)
+
+# Add the CRCEncoder layer to the model
+encoded = encoder(input_layer)
+
+# Add other possible layers for processing (e.g., channel simulation, noise addition, etc.)
+# For demonstration, we assume no additional layers
+
+# Add the CRCDecoder layer to the model
+decoded, crc_valid = decoder(encoded)
+
+# Create the Keras model with inputs and outputs defined
+model = Model(inputs=input_layer, outputs=[decoded, crc_valid])
+
+# Summary of the model
+model.summary()
+```
+
+Remember to adjust `num_info_bits` and the input shapes as per your use case. Additionally, you may add other layers between the encoder and decoder to simulate channel effects or other necessary processing for your task.
+
+With the Keras functional API, as shown above, you can create complex models beyond simple sequential ones. The functional API is powerful because it can handle models with non-linear topology, shared layers, and even multiple inputs or outputs, like in the case of our CRC layers.
+
+In the demonstration, the Keras model expects inputs shaped as `[batch_size, num_info_bits]` and will produce outputs `[decoded_data]` and `[crc_valid]`. The decoded_data output will contain the information bits without the CRC parity bits, and the crc_valid output will indicate whether the CRC check was successful for each codeword in a mini-batch.
+
+Please ensure you have correctly installed and imported the `sionna` package, which provides the `CRCEncoder` and `CRCDecoder` classes, before running the above code.
+
+### 10. INSTRUCTION:
+Discuss error handling in the `CRCEncoder` and `CRCDecoder` classes, including the conditions under which an `AssertionError`, `ValueError`, or `InvalidArgumentError` might be raised during their usage.
+
+**ANSWER:**
+
+Error handling in `CRCEncoder` and `CRCDecoder` classes from the provided context is vital to ensure that the classes are used correctly and that the data is processed as intended. Here are the conditions under which an `AssertionError`, `ValueError`, or `InvalidArgumentError` might be raised during their usage:
+
+### CRCEncoder Error Handling
+
+1. **AssertionError**: This error is raised if the `crc_degree` passed to the `CRCEncoder` is not a string. Since `crc_degree` is expected to be a string that defines the CRC polynomial to be used, such as one of the values from {CRC24A, CRC24B, CRC24C, CRC16, CRC11, CRC6}, passing a different type would violate this requirement.
+
+2. **ValueError**: If the CRC polynomial specified by `crc_degree` is not available in the set defined by [3GPPTS38212_CRC], a `ValueError` is raised. Only the CRC polynomials listed are supported, so specifying an unsupported or misspelled polynomial name would trigger this error.
+
+3. **InvalidArgumentError**: This error occurs when the input tensor rank is less than 2. The `inputs` tensor is expected to be at least 2D where the last dimension is `[...,k]`, representing the codeword length. A tensor with a rank less than 2 would not meet the expected structure for CRC encoding and thus results in an `InvalidArgumentError`.
+
+### CRCDecoder Error Handling
+
+1. **AssertionError**: Raised if the `crc_encoder` parameter passed to the `CRCDecoder` is not an instance of `CRCEncoder`. The `CRCDecoder` must be associated with a specific `CRCEncoder` instance to work correctly, and passing a different type would be incorrect usage.
+
+2. **InvalidArgumentError**: Similar to `CRCEncoder`, if the rank of the `inputs` tensor provided to the `CRCDecoder` is less than 2, it raises an `InvalidArgumentError`. The `inputs` tensor must be at least 2D and contain the encoded bits, including parity bits specified by `crc_degree`. This structure is necessary for the decoder to properly extract the information bits and verify the CRC.
+
+It is important to handle these errors appropriately in the application using these classes. For example, catching a `ValueError` when the CRC polynomial does not exist could allow the application to provide a meaningful error message to the user or to select a default polynomial instead. Similarly, catching `InvalidArgumentError` could prompt a check for the shape of the input data to ensure that they conform to the expected dimensions before proceeding with CRC encoding or decoding.
+
+### 11. INSTRUCTION:
+Illustrate how to obtain the length of the CRC (number of CRC parity bits) and the CRC polynomial in binary representation from the `CRCEncoder` instance properties.
+
+**ANSWER:**
+
+To obtain the length of the CRC and the CRC polynomial in binary representation from a `CRCEncoder` instance, you can access specific properties of the `CRCEncoder` object. Here's how you can do it after you have created an instance of `CRCEncoder`:
+
+```python
+# Assuming you have created CRCEncoder instance like the following
+encoder = CRCEncoder(crc_degree="CRC24A") # You can choose any of the available degrees
+
+# Now, you can access the number of CRC parity bits (the length of the CRC) using the `crc_length` property:
+crc_length = encoder.crc_length
+
+# To obtain the binary representation of the CRC polynomial, you can use the `crc_pol` property:
+crc_polynomial_binary = encoder.crc_pol
+
+# Now to print or use them
+print(f"The length of the CRC is: {crc_length} bits")
+print(f"The binary representation of the CRC polynomial is: {crc_polynomial_binary}")
+```
+
+In this example, `crc_length` will hold the number of CRC parity bits, which reflects the degree of the CRC, and `crc_polynomial_binary` will have the CRC polynomial expressed in binary.
+
+Keep in mind that the actual numerical value of `crc_polynomial_binary` will be dependent on the specific CRC that your `CRCEncoder` instance is configured to use, as specified by its `crc_degree` parameter.
+
+### 12. INSTRUCTION:
+Describe the adjustments to the encoder (or internal rebuild) that may be necessary when the number of information bits per codeword (k) changes, emphasizing performance enhancements with a generator-matrix based implementation.
+
+**ANSWER:**
+
+When the number of information bits per codeword (k) changes in a CRC encoding scenario, it is essential to adjust the encoder to ensure accurate encoding and decoding of the data. In a generator-matrix based implementation, such adjustments can provide performance enhancements. Below are the steps and considerations for the required adjustments:
+
+1. Update the Generator Matrix: The encoder's generator matrix, G, must be reconstructed to match the new value of k. A generator matrix G for a CRC is structured such that G = [Ik | P], where Ik is the identity matrix of size k and P is the matrix representing the parity-check positions. When k changes, both Ik and P need to be recalculated so that G correctly represents the new code space.
+
+2. Adjust Parity Bit Calculation: The encoder calculates a set of redundancy bits (parity bits) by multiplying the information bits vector by the generator matrix. With the new value of k, the encoder needs to rebuild internal structures to generate the correct number of parity bits (k_crc), as defined by the crc_degree parameter.
+
+3. Customize CRC Polynomials: For different values of k and crc_degree, the corresponding CRC polynomial (crc_pol) may need to be selected or customized to match the length of the codewords and optimize error detection capability.
+
+4. Maintain Codeword Length (n): The total codeword length, n, is defined as the sum of the number of information bits (k) and the number of CRC parity bits (crc_degree). The encoder must adjust its internal codeword construction mechanism so that the total length of the codeword remains consistent with n = k + crc_degree.
+
+5. Code Performance Evaluation: After any changes, the encoder's performance should be evaluated to ensure that the new generator matrix and parity bit calculations provide the desired level of error detection without any unintended degradation in efficiency or increased false positive rate in error detection.
+
+6. Decoder Adjustment: In tandem with the encoder, the CRCDecoder must also recognize the change in information bit length. It must be capable of correctly identifying and separating the information bits from the CRC parity bits and validating the CRC according to the newly adjusted parameters.
+
+7. Error Handling & Validation: The encoder and decoder should include error checking and assertion mechanisms to catch inconsistencies in the input parameters and CRC configuration, thus avoiding invalid operations or incorrect CRC calculations.
+
+By making these adjustments, the CRC encoder can adapt to the changing number of information bits per codeword, ensuring that the encoding process remains reliable and efficient, and that the CRC continues to serve as a robust error-detection scheme.
+

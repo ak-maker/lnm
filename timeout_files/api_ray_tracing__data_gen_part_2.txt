@@ -1,0 +1,366 @@
+# Ray Tracing
+
+## Scene
+### sionna.rt.Scene.coverage_map(self, rx_orientation=(0.0, 0.0, 0.0), max_depth=3, cm_center=None, cm_orientation=None, cm_size=None, cm_cell_size=(10.0, 10.0), combining_vec=None, precoding_vec=None, num_samples=2000000, los=True, reflection=True, diffraction=False, scattering=False, edge_diffraction=False, check_scene=True)
+### sionna.rt.load_scene(filename=None, dtype=tf.complex64)
+### sionna.rt.Scene.preview(paths=None, show_paths=True, show_devices=True, coverage_map=None, cm_tx=0, cm_vmin=None, cm_vmax=None, resolution=(655, 500), fov=45, background='#ffffff', clip_at=None, clip_plane_orientation=(0, 0, - 1))
+### sionna.rt.Scene.render(camera, paths=None, show_paths=True, show_devices=True, coverage_map=None, cm_tx=0, cm_vmin=None, cm_vmax=None, cm_show_color_bar=True, num_samples=512, resolution=(655, 500), fov=45)
+### sionna.rt.Scene.render_to_file(camera, filename, paths=None, show_paths=True, show_devices=True, coverage_map=None, cm_tx=0, cm_db_scale=True, cm_vmin=None, cm_vmax=None, num_samples=512, resolution=(655, 500), fov=45)
+## Example Scenes
+### sionna.rt.scene.floor_wall
+### sionna.rt.scene.simple_street_canyon
+### sionna.rt.scene.etoile
+### sionna.rt.scene.munich
+### sionna.rt.scene.simple_wedge
+### sionna.rt.scene.simple_reflector
+### sionna.rt.scene.double_reflector
+### sionna.rt.scene.triple_reflector
+### sionna.rt.scene.box
+## Paths
+
+# Ray Tracing
+
+This module provides a differentiable ray tracer for radio propagation modeling. The best way to get started is by having a look at the Sionna Ray Tracing Tutorial. The Primer on Electromagnetics provides useful background knowledge and various definitions that are used throughout the API documentation.
+
+The most important component of the ray tracer is the Scene. It has methods for the computation of propagation Paths (compute_paths()) and CoverageMap (coverage_map()). Sionna has several integrated Example Scenes that you can use for your own experiments. In this video, we explain how you can create your own scenes using OpenStreetMap and Blender. You can preview a scene within a Jupyter notebook (preview()) or render it to a file from the viewpoint of a camera (render() or render_to_file()).
+
+Propagation Paths can be transformed into time-varying channel impulse responses (CIRs) via cir(). The CIRs can then be used for link-level simulations in Sionna via the functions cir_to_time_channel() or cir_to_ofdm_channel(). Alternatively, you can create a dataset of CIRs that can be used by a channel model with the help of CIRDataset.
+
+The paper Sionna RT: Differentiable Ray Tracing for Radio Propagation Modeling shows how differentiable ray tracing can be used for various optimization tasks. The related notebooks can be a good starting point for your own experiments.
+
+### sionna.rt.Scene.coverage_map(self, rx_orientation=(0.0, 0.0, 0.0), max_depth=3, cm_center=None, cm_orientation=None, cm_size=None, cm_cell_size=(10.0, 10.0), combining_vec=None, precoding_vec=None, num_samples=2000000, los=True, reflection=True, diffraction=False, scattering=False, edge_diffraction=False, check_scene=True)
+This function computes a coverage map for every transmitter in the scene.
+For a given transmitter, a coverage map is a rectangular surface with arbitrary orientation subdivded into rectangular cells of size
+\lvert C \rvert = \texttt{cm_cell_size[0]} \times  \texttt{cm_cell_size[1]}
+. The parameter cm_cell_size therefore controls the granularity of the map. The coverage map associates with every cell
+(i,j)
+the quantity
+(43)
+b_{i,j} = \frac{1}{\lvert C \rvert} \int_{C_{i,j}} \lvert h(s) \rvert^2 ds
+where
+\lvert h(s) \rvert^2
+is the squared amplitude of the path coefficients
+a_i
+at position
+s=(x,y)
+, the integral is over the cell
+C_{i,j}
+, and
+ds
+is the infinitesimal small surface element
+ds=dx \cdot dy
+. The dimension indexed by
+i(j) corresponds to the
+y(x)
+-axis of the coverage map in its local coordinate system.
+For specularly and diffusely reflected paths, (43) can be rewritten as an integral over the directions of departure of the rays from the transmitter, by substituting
+s
+with the corresponding direction
+\omega
+:
+b_{i,j} = \frac{1}{\lvert C \rvert} \int_{\Omega} \lvert h\left(s(\omega) \right) \rvert^2 \frac{r(\omega)^2}{\lvert \cos{\alpha(\omega)} \rvert} \mathbb{1}_{\left\{ s(\omega) \in C_{i,j} \right\}} d\omega
+where the integration is over the unit sphere
+\Omega
+,
+r(\omega)
+is the length of the path with direction of departure
+\omega
+,
+s(\omega)
+is the point where the path with direction of departure
+\omega
+intersects the coverage map,
+\alpha(\omega)
+is the angle between the coverage map normal and the direction of arrival of the path with direction of departure
+\omega
+, and
+\mathbb{1}_{\left\{ s(\omega) \in C_{i,j} \right\}}
+is the function that takes as value one if
+s(\omega) \in C_{i,j}
+and zero otherwise. Note that
+ds = \frac{r(\omega)^2 d\omega}{\lvert \cos{\alpha(\omega)} \rvert}
+.
+The previous integral is approximated through Monte Carlo sampling by shooting
+N
+rays with directions
+\omega_n
+arranged as a Fibonacci lattice on the unit sphere around the transmitter, and bouncing the rays on the intersected objects until the maximum depth (max_depth) is reached or the ray bounces out of the scene. At every intersection with an object of the scene, a new ray is shot from the intersection which corresponds to either specular reflection or diffuse scattering, following a Bernoulli distribution with parameter the squared scattering coefficient. When diffuse scattering is selected, the direction of the scattered ray is uniformly sampled on the half-sphere. The resulting Monte Carlo estimate is:
+(44)
+\hat{b}_{i,j}^{\text{(ref)}} = \frac{4\pi}{N\lvert C \rvert} \sum_{n=1}^N \lvert h\left(s(\omega_n)\right)  \rvert^2 \frac{r(\omega_n)^2}{\lvert \cos{\alpha(\omega_n)} \rvert} \mathbb{1}_{\left\{ s(\omega_n) \in C_{i,j} \right\}}.
+For the diffracted paths, (43) can be rewritten for any wedge with length
+L
+and opening angle
+\Phi
+as an integral over the wedge and its opening angle, by substituting
+s
+with the position on the wedge
+\ell \in [1,L]
+and the angle
+\phi \in [0, \Phi]
+:
+b_{i,j} = \frac{1}{\lvert C \rvert} \int_{\ell} \int_{\phi} \lvert h\left(s(\ell,\phi) \right) \rvert^2 \mathbb{1}_{\left\{ s(\ell,\phi) \in C_{i,j} \right\}} \left\lVert \frac{\partial r}{\partial \ell} \times \frac{\partial r}{\partial \phi} \right\rVert d\ell d\phi
+where the integral is over the wedge length
+L
+and opening angle
+\Phi
+, and
+r\left( \ell, \phi \right)
+is the reparametrization with respected to
+(\ell, \phi)
+of the intersection between the diffraction cone at
+\ell
+and the rectangle defining the coverage map (see, e.g., [SurfaceIntegral]). The previous integral is approximated through Monte Carlo sampling by shooting
+N'
+rays from equally spaced locations
+\ell_n
+along the wedge with directions
+\phi_n
+sampled uniformly from
+(0, \Phi)
+:
+(45)
+\hat{b}_{i,j}^{\text{(diff)}} = \frac{L\Phi}{N'\lvert C \rvert} \sum_{n=1}^{N'} \lvert h\left(s(\ell_n,\phi_n)\right) \rvert^2 \mathbb{1}_{\left\{ s(\ell_n,\phi_n) \in C_{i,j} \right\}} \left\lVert \left(\frac{\partial r}{\partial \ell}\right)_n \times \left(\frac{\partial r}{\partial \phi}\right)_n \right\rVert.
+,
+The output of this function is therefore a real-valued matrix of size [num_cells_y, num_cells_x], for every transmitter, with elements equal to the sum of the contributions of the reflected and scattered paths (44) and diffracted paths (45) for all the wedges, and where
+\begin{split}\texttt{num_cells_x} = \bigg\lceil\frac{\texttt{cm_size[0]}}{\texttt{cm_cell_size[0]}} \bigg\rceil\\
+\texttt{num_cells_y} = \bigg\lceil \frac{\texttt{cm_size[1]}}{\texttt{cm_cell_size[1]}} \bigg\rceil.\end{split}
+.
+The surface defining the coverage map is a rectangle centered at cm_center, with orientation cm_orientation, and with size cm_size. An orientation of (0,0,0) corresponds to a coverage map parallel to the XY plane, with surface normal pointing towards the
++z
+axis. By default, the coverage map is parallel to the XY plane, covers all of the scene, and has an elevation of
+z = 1.5\text{m}
+. The receiver is assumed to use the antenna array scene.rx_array. If transmitter and/or receiver have multiple antennas, transmit precoding and receive combining are applied which are defined by precoding_vec and combining_vec, respectively.
+The
+(i,j)
+indices are omitted in the following for clarity. For reflection and scattering, paths are generated by shooting num_samples rays from the transmitters with directions arranged in a Fibonacci lattice on the unit sphere and by simulating their propagation for up to max_depth interactions with scene objects. If max_depth is set to 0 and if los is set to True, only the line-of-sight path is considered. For diffraction, paths are generated by shooting num_samples rays from equally spaced locations along the wedges in line-of-sight with the transmitter, with directions uniformly sampled on the diffraction cone.
+For every ray
+n
+intersecting the coverage map cell
+(i,j)
+, the channel coefficients,
+a_n
+, and the angles of departure (AoDs)
+(\theta_{\text{T},n}, \varphi_{\text{T},n})
+and arrival (AoAs)
+(\theta_{\text{R},n}, \varphi_{\text{R},n})
+are computed. See the Primer on Electromagnetics for more details.
+A “synthetic” array is simulated by adding additional phase shifts that depend on the antenna position relative to the position of the transmitter (receiver) as well as the AoDs (AoAs). For the
+k^\text{th}
+transmit antenna and
+\ell^\text{th}
+receive antenna, let us denote by
+\mathbf{d}_{\text{T},k}
+and
+\mathbf{d}_{\text{R},\ell}
+the relative positions (with respect to the positions of the transmitter/receiver) of the pair of antennas for which the channel impulse response shall be computed. These can be accessed through the antenna array’s property positions. Using a plane-wave assumption, the resulting phase shifts from these displacements can be computed as
+\begin{split}p_{\text{T}, n,k} &= \frac{2\pi}{\lambda}\hat{\mathbf{r}}(\theta_{\text{T},n}, \varphi_{\text{T},n})^\mathsf{T} \mathbf{d}_{\text{T},k}\\
+p_{\text{R}, n,\ell} &= \frac{2\pi}{\lambda}\hat{\mathbf{r}}(\theta_{\text{R},n}, \varphi_{\text{R},n})^\mathsf{T} \mathbf{d}_{\text{R},\ell}.\end{split}
+.
+The final expression for the path coefficient is
+h_{n,k,\ell} =  a_n e^{j(p_{\text{T}, i,k} + p_{\text{R}, i,\ell})}
+for every transmit antenna
+k
+and receive antenna
+\ell
+. These coefficients form the complex-valued channel matrix,
+\mathbf{H}_n
+, of size
+\texttt{num_rx_ant} \times \texttt{num_tx_ant}
+.
+Finally, the coefficient of the equivalent SISO channel is
+h_n =  \mathbf{c}^{\mathsf{H}} \mathbf{H}_n \mathbf{p}
+where
+\mathbf{c}
+and
+\mathbf{p}
+are the combining and precoding vectors (combining_vec and precoding_vec), respectively.
+Example
+import sionna
+from sionna.rt import load_scene, PlanarArray, Transmitter, Receiver
+scene = load_scene(sionna.rt.scene.munich)
+
+# Configure antenna array for all transmitters
+scene.tx_array = PlanarArray(num_rows=8,
+                        num_cols=2,
+                        vertical_spacing=0.7,
+                        horizontal_spacing=0.5,
+                        pattern="tr38901",
+                        polarization="VH")
+
+# Configure antenna array for all receivers
+scene.rx_array = PlanarArray(num_rows=1,
+                        num_cols=1,
+                        vertical_spacing=0.5,
+                        horizontal_spacing=0.5,
+                        pattern="dipole",
+                        polarization="cross")
+# Add a transmitters
+tx = Transmitter(name="tx",
+            position=[8.5,21,30],
+            orientation=[0,0,0])
+scene.add(tx)
+tx.look_at([40,80,1.5])
+
+# Compute coverage map
+cm = scene.coverage_map(cm_cell_size=[1.,1.],
+                    num_samples=int(10e6))
+
+# Visualize coverage in preview
+scene.preview(coverage_map=cm,
+            resolution=[1000, 600])
+Input
+rx_orientation ([3], float) – Orientation of the receiver
+(\alpha, \beta, \gamma)
+specified through three angles corresponding to a 3D rotation as defined in (3). Defaults to
+(0,0,0)
+.
+max_depth (int) – Maximum depth (i.e., number of bounces) allowed for tracing the paths. Defaults to 3.
+cm_center ([3], float | None) – Center of the coverage map
+(x,y,z)
+as three-dimensional vector. If set to None, the coverage map is centered on the center of the scene, except for the elevation
+z
+that is set to 1.5m. Otherwise, cm_orientation and cm_scale must also not be None. Defaults to None.
+cm_orientation ([3], float | None) – Orientation of the coverage map
+(\alpha, \beta, \gamma)
+specified through three angles corresponding to a 3D rotation as defined in (3). An orientation of
+(0,0,0)
+or None corresponds to a coverage map that is parallel to the XY plane. If not set to None, then cm_center and cm_scale must also not be None. Defaults to None.
+cm_size ([2], float | None) – Size of the coverage map [m]. If set to None, then the size of the coverage map is set such that it covers the entire scene. Otherwise, cm_center and cm_orientation must also not be None. Defaults to None.
+cm_cell_size ([2], float) – Size of a cell of the coverage map [m]. Defaults to
+(10,10)
+.
+combining_vec ([num_rx_ant], complex | None) – Combining vector. If set to None, then no combining is applied, and the energy received by all antennas is summed.
+precoding_vec ([num_tx_ant], complex | None) – Precoding vector. If set to None, then defaults to
+\frac{1}{\sqrt{\text{num_tx_ant}}} [1,\dots,1]^{\mathsf{T}}
+.
+num_samples (int) – Number of random rays to trace. For the reflected paths, this number is split equally over the different transmitters. For the diffracted paths, it is split over the wedges in line-of-sight with the transmitters such that the number of rays allocated to a wedge is proportional to its length. Defaults to 2e6.
+los (bool) – If set to True, then the LoS paths are computed. Defaults to True.
+reflection (bool) – If set to True, then the reflected paths are computed. Defaults to True.
+diffraction (bool) – If set to True, then the diffracted paths are computed. Defaults to False.
+scattering (bool) – If set to True, then the scattered paths are computed. Defaults to False.
+edge_diffraction (bool) – If set to False, only diffraction on wedges, i.e., edges that connect two primitives, is considered. Defaults to False.
+check_scene (bool) – If set to True, checks that the scene is well configured before computing the coverage map. This can add a significant overhead. Defaults to True.
+Output
+cm : CoverageMap – The coverage maps
+### sionna.rt.load_scene(filename=None, dtype=tf.complex64)
+Load a scene from file
+Note that only one scene can be loaded at a time.
+Input
+filename (str) – Name of a valid scene file. Sionna uses the simple XML-based format from Mitsuba 3. Defaults to None for which an empty scene is created.
+dtype (tf.complex) – Dtype used for all internal computations and outputs. Defaults to tf.complex64.
+Output
+scene (Scene) – Reference to the current scene
+### sionna.rt.Scene.preview(paths=None, show_paths=True, show_devices=True, coverage_map=None, cm_tx=0, cm_vmin=None, cm_vmax=None, resolution=(655, 500), fov=45, background='#ffffff', clip_at=None, clip_plane_orientation=(0, 0, - 1))
+In an interactive notebook environment, opens an interactive 3D viewer of the scene.
+The returned value of this method must be the last line of the cell so that it is displayed. For example:
+fig = scene.preview()
+# ...
+fig
+Or simply:
+scene.preview()
+Color coding:
+Green: Receiver
+Blue: Transmitter
+Controls:
+Mouse left: Rotate
+Scroll wheel: Zoom
+Mouse right: Move
+Input
+paths (Paths | None) – Simulated paths generated by compute_paths() or None. If None, only the scene is rendered. Defaults to None.
+show_paths (bool) – If paths is not None, shows the paths. Defaults to True.
+show_devices (bool) – If set to True, shows the radio devices. Defaults to True.
+show_orientations (bool) – If show_devices is True, shows the radio devices orientations. Defaults to False.
+coverage_map (CoverageMap | None) – An optional coverage map to overlay in the scene for visualization. Defaults to None.
+cm_tx (int | str) – When coverage_map is specified, controls which of the transmitters to display the coverage map for. Either the transmitter’s name or index can be given. Defaults to 0.
+cm_db_scale (bool) – Use logarithmic scale for coverage map visualization, i.e. the coverage values are mapped with:
+y = 10 \cdot \log_{10}(x)
+. Defaults to True.
+cm_vmin, cm_vmax (floot | None) – For coverage map visualization, defines the range of path gains that the colormap covers. These parameters should be provided in dB if cm_db_scale is set to True, or in linear scale otherwise. If set to None, then covers the complete range. Defaults to None.
+resolution ([2], int) – Size of the viewer figure. Defaults to [655, 500].
+fov (float) – Field of view, in degrees. Defaults to 45°.
+background (str) – Background color in hex format prefixed by ‘#’. Defaults to ‘#ffffff’ (white).
+clip_at (float) – If not None, the scene preview will be clipped (cut) by a plane with normal orientation clip_plane_orientation and offset clip_at. That means that everything behind the plane becomes invisible. This allows visualizing the interior of meshes, such as buildings. Defaults to None.
+clip_plane_orientation (tuple[float, float, float]) – Normal vector of the clipping plane. Defaults to (0,0,-1).
+### sionna.rt.Scene.render(camera, paths=None, show_paths=True, show_devices=True, coverage_map=None, cm_tx=0, cm_vmin=None, cm_vmax=None, cm_show_color_bar=True, num_samples=512, resolution=(655, 500), fov=45)
+Renders the scene from the viewpoint of a camera or the interactive viewer
+Input
+camera (str | Camera) – The name or instance of a Camera. If an interactive viewer was opened with preview(), set to “preview” to use its viewpoint.
+paths (Paths | None) – Simulated paths generated by compute_paths() or None. If None, only the scene is rendered. Defaults to None.
+show_paths (bool) – If paths is not None, shows the paths. Defaults to True.
+show_devices (bool) – If paths is not None, shows the radio devices. Defaults to True.
+coverage_map (CoverageMap | None) – An optional coverage map to overlay in the scene for visualization. Defaults to None.
+cm_tx (int | str) – When coverage_map is specified, controls which of the transmitters to display the coverage map for. Either the transmitter’s name or index can be given. Defaults to 0.
+cm_db_scale (bool) – Use logarithmic scale for coverage map visualization, i.e. the coverage values are mapped with:
+y = 10 \cdot \log_{10}(x)
+. Defaults to True.
+cm_vmin, cm_vmax (float | None) – For coverage map visualization, defines the range of path gains that the colormap covers. These parameters should be provided in dB if cm_db_scale is set to True, or in linear scale otherwise. If set to None, then covers the complete range. Defaults to None.
+cm_show_color_bar (bool) – For coverage map visualization, show the color bar describing the color mapping used next to the rendering. Defaults to True.
+num_samples (int) – Number of rays thrown per pixel. Defaults to 512.
+resolution ([2], int) – Size of the rendered figure. Defaults to [655, 500].
+fov (float) – Field of view, in degrees. Defaults to 45°.
+Output
+Figure – Rendered image
+### sionna.rt.Scene.render_to_file(camera, filename, paths=None, show_paths=True, show_devices=True, coverage_map=None, cm_tx=0, cm_db_scale=True, cm_vmin=None, cm_vmax=None, num_samples=512, resolution=(655, 500), fov=45)
+Renders the scene from the viewpoint of a camera or the interactive viewer, and saves the resulting image
+Input
+camera (str | Camera) – The name or instance of a Camera. If an interactive viewer was opened with preview(), set to “preview” to use its viewpoint.
+filename (str) – Filename for saving the rendered image, e.g., “my_scene.png”
+paths (Paths | None) – Simulated paths generated by compute_paths() or None. If None, only the scene is rendered. Defaults to None.
+show_paths (bool) – If paths is not None, shows the paths. Defaults to True.
+show_devices (bool) – If paths is not None, shows the radio devices. Defaults to True.
+coverage_map (CoverageMap | None) – An optional coverage map to overlay in the scene for visualization. Defaults to None.
+cm_tx (int | str) – When coverage_map is specified, controls which of the transmitters to display the coverage map for. Either the transmitter’s name or index can be given. Defaults to 0.
+cm_db_scale (bool) – Use logarithmic scale for coverage map visualization, i.e. the coverage values are mapped with:
+y = 10 \cdot \log_{10}(x)
+. Defaults to True.
+cm_vmin, cm_vmax (float | None) – For coverage map visualization, defines the range of path gains that the colormap covers. These parameters should be provided in dB if cm_db_scale is set to True, or in linear scale otherwise. If set to None, then covers the complete range. Defaults to None.
+num_samples (int) – Number of rays thrown per pixel. Defaults to 512.
+resolution ([2], int) – Size of the rendered figure. Defaults to [655, 500].
+fov (float) – Field of view, in degrees. Defaults to 45°.
+## Example Scenes
+Sionna has several integrated scenes that are listed below. They can be loaded and used as follows:
+scene = load_scene(sionna.rt.scene.etoile)
+scene.preview()
+### sionna.rt.scene.floor_wall
+Example scene containing a ground plane and a vertical wall
+(Blender file)
+### sionna.rt.scene.simple_street_canyon
+Example scene containing a few rectangular building blocks and a ground plane
+(Blender file)
+### sionna.rt.scene.etoile
+Example scene containing the area around the Arc de Triomphe in Paris The scene was created with data downloaded from OpenStreetMap and the help of Blender and the Blender-OSM and Mitsuba Blender add-ons. The data is licensed under the Open Data Commons Open Database License (ODbL).
+(Blender file)
+### sionna.rt.scene.munich
+Example scene containing the area around the Frauenkirche in Munich The scene was created with data downloaded from OpenStreetMap and the help of Blender and the Blender-OSM and Mitsuba Blender add-ons. The data is licensed under the Open Data Commons Open Database License (ODbL).
+(Blender file)
+### sionna.rt.scene.simple_wedge
+Example scene containing a wedge with a
+90^{\circ}
+opening angle
+(Blender file)
+### sionna.rt.scene.simple_reflector
+Example scene containing a metallic square
+(Blender file)
+### sionna.rt.scene.double_reflector
+Example scene containing two metallic squares
+(Blender file)
+### sionna.rt.scene.triple_reflector
+Example scene containing three metallic rectangles
+(Blender file)
+### sionna.rt.scene.box
+Example scene containing a metallic box
+(Blender file)
+## Paths
+A propagation path
+i
+starts at a transmit antenna and ends at a receive antenna. It is described by its channel coefficient
+a_i
+and delay
+\tau_i
+, as well as the angles of departure
+(\theta_{\text{T},i}, \varphi_{\text{T},i})
+and arrival
+(\theta_{\text{R},i}, \varphi_{\text{R},i})
+. For more detail, see the Primer on Electromagnetics.
+In Sionna, paths are computed with the help of the function compute_paths() which returns an instance of Paths. Paths can be visualized by providing them as arguments to the functions render(), render_to_file(), or preview().
+Channel impulse responses (CIRs) can be obtained with cir() which can then be used for link-level simulations. This is for example done in the Sionna Ray Tracing Tutorial.

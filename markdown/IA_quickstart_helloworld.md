@@ -1,0 +1,272 @@
+### 1. INSTRUCTION:
+Set up your programming environment to use the Sionna library in Google Colab by specifying the GPU to use and suppressing TensorFlow logs.
+
+**ANSWER:**
+
+To set up your programming environment in Google Colab for using the Sionna library with a specified GPU and suppressing TensorFlow logs, you can follow these steps:
+
+1. Open a new Google Colab notebook.
+
+2. At the beginning of your Colab notebook, set the GPU you want to use and suppress the TensorFlow logs by adding these lines of code:
+
+```python
+import os
+
+# Specify the GPU to use by setting the GPU number or use "" for CPU.
+gpu_num = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = gpu_num
+
+# Suppress TensorFlow logs except for errors (levels: 0-All, 1-INFO, 2-WARNING, 3-ERROR).
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+# Ensure that any TensorFlow log suppression takes effect before importing TensorFlow.
+import tensorflow as tf
+tf.get_logger().setLevel('ERROR')
+
+# Import Sionna, install if not already available.
+try:
+    import sionna
+except ImportError:
+    !pip install sionna
+    import sionna
+
+# IPython "magic function" for inline plots
+%matplotlib inline
+import matplotlib.pyplot as plt
+```
+
+Remember that Google Colab might already have Sionna installed, but the `try-except` block ensures that if Sionna is not present, it will be installed automatically.
+
+3. Run the cell with the above setup code.
+
+This setup will ensure that your Colab notebook is ready for using the Sionna library with a specified GPU, and that TensorFlow logs are suppressed to keep the output clean from any excessive logging information.
+
+### 2. INSTRUCTION:
+Install the Sionna package in your Python environment if it is not already present, and import the Sionna library into your code.
+
+**ANSWER:**
+
+Based on the provided context, the Sionna package may be required for running a Python script that handles tasks related to communications, such as simulating a binary source and transmitting symbols over an Additive White Gaussian Noise (AWGN) channel. Here's how you install and import the Sionna library in your Python environment:
+
+1. Check if the Sionna package is already installed:
+
+```python
+try:
+    import sionna
+except ImportError:
+    pass
+```
+
+2. If it's not installed, you will need to install it using `pip`. It's recommended to do this inside a virtual environment to avoid potential conflicts with other packages in your system's Python environment.
+
+To install the Sionna package, use the following command:
+
+```python
+!pip install sionna
+```
+
+Note that the exclamation mark (`!`) is used to run the command in Google Colab or Jupyter notebooks. If you're running the code in a different environment, you might not need the exclamation mark.
+
+3. After ensuring that Sionna is installed, you can import it into your code:
+
+```python
+import sionna
+```
+
+The full process is as follows:
+
+```python
+try:
+    # Try importing the Sionna package
+    import sionna
+except ImportError:
+    # If the import fails, install the package
+    !pip install sionna
+    # After installation, attempt to import the package again
+    import sionna
+```
+
+Once Sionna is installed and imported, you can proceed with the rest of your code that utilizes this library for communication systems simulations.
+
+### 3. INSTRUCTION:
+Create a `BinarySource` instance in Sionna to generate a random batch of bit vectors, specifying the batch size and number of bits per symbol, and display the output.
+
+**ANSWER:**
+
+To create a `BinarySource` instance in Sionna and generate a random batch of bit vectors, you need to specify the batch size, which indicates how many symbols you want to generate, and the number of bits per symbol, which indicates the size of your bit vector per symbol. Once these vectors are generated, you can display the output, which consists of random bit sequences.
+
+Here's how to accomplish this task:
+
+```python
+# Import Sionna
+import sionna
+
+# Set the batch size and number of bits per symbol
+batch_size = 1000  # for example, to create a batch of 1000 symbols
+num_bits_per_symbol = 4  # for example, to have 4 bits per symbol
+
+# Create a BinarySource instance in Sionna
+binary_source = sionna.utils.BinarySource()
+
+# Generate a random batch of bit vectors
+b = binary_source([batch_size, num_bits_per_symbol])
+
+# Display the output
+print(b)
+```
+
+By running the above code block, an instance of `BinarySource` will be created, and a batch of random bit vectors will be generated and printed. The shape of the output `b` will be (batch_size, num_bits_per_symbol),  and each entry will be either 0 or 1, representing the random bits generated for each symbol.
+
+### 4. INSTRUCTION:
+Initialize a `Constellation` object in Sionna for 16-QAM modulation, and use the `show` method to visualize the constellation diagram.
+
+**ANSWER:**
+
+To create a `Constellation` object in Sionna for 16-QAM modulation and visualize the constellation diagram, follow the guide as shown in the context snippet `[3]`:
+
+First, ensure that Sionna is correctly imported and set up for use:
+
+```python
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # This line is to suppress TensorFlow warnings if needed
+
+try:
+    import sionna
+except ImportError as e:
+    # Install Sionna if package is not already installed
+    os.system("pip install sionna")
+    import sionna
+```
+
+Next, run the necessary code to initialize the `Constellation` object and visualize it:
+
+```python
+# Create a Constellation object with 16-QAM modulation (since 16-QAM has to 4 bits per symbol)
+# Please note that we assume here that the code related to initialization and creation of the constellation
+# is similar to the context provided in your snippet `[3]`
+num_bits_per_symbol = 4
+constellation = sionna.mapping.Constellation("qam", num_bits_per_symbol)
+
+# Use the `show` method to visualize the constellation diagram
+constellation.show()
+```
+
+Run the above code in your Python environment where Sionna is installed, ensuring `num_bits_per_symbol` is set to 4, which corresponds to 16-QAM. The `constellation.show()` function will plot the constellation diagram for visual reference.
+
+### 5. INSTRUCTION:
+Utilize the `Mapper` class in Sionna to map the generated bit vectors to their corresponding constellation symbols and print the first 10 mapped symbols.
+
+**ANSWER:**
+
+Based on the context provided, you already have the necessary components to map bit vectors to constellation symbols using the Sionna library. You've created a `mapper` using the `Mapper` class with a `constellation` object, and you've used this mapper to map bits in tensor `b` to complex symbols in tensor `x`. To print the first 10 mapped symbols, you can convert the complex tensor `x[:10]` to a numpy array and then print it.
+
+Below is the code snippet that should follow after the given context:
+
+```python
+# Convert to numpy array and print first 10 constellation symbols
+first_ten_symbols = x[:10].numpy()
+print(first_ten_symbols)
+```
+
+If you copy and paste this snippet into your Jupyter notebook or Colab after code block [4], it should print the first ten symbols in the complex constellation that have been generated using the `Mapper` class.
+
+### 6. INSTRUCTION:
+Send the mapped symbols through an AWGN channel using Sionna's `AWGN` class by defining the desired Eb/No in dB, converting it to noise power, and applying the channel model.
+
+**ANSWER:**
+
+To send the mapped symbols through an AWGN channel using Sionna's `AWGN` class, follow these steps:
+
+1. Define the desired `Eb/No` value in dB (this value appears to be 15 in the context given).
+
+2. Convert the `Eb/No` value to noise power. The context shows that the `ebnodb2no` utility function is used to convert `Eb/No` in dB to noise power density \(N_0\). The function takes in the `Eb/No` in dB, the number of bits per symbol, and the code rate, which is set to 1 if not using a forward error correction (FEC) code.
+
+3. Create an instance of the `AWGN` channel model.
+
+4. Apply the AWGN channel to the symbol tensor along with the noise power density calculated in step 2.
+
+Here's a code snippet that incorporates these steps based on the provided context:
+
+```python
+import sionna
+
+# Assuming that previously in the context you have defined variables and created objects 
+# such as `x`, `batch_size`, `num_bits_per_symbol`, etc.
+
+# Step 1: Define the Eb/No value in dB
+ebno_db = 15  # This is the desired Eb/No in dB
+
+# Step 2: Convert Eb/No in dB to noise power density N_0
+# In this case, the code rate is assumed to be 1, as there's no FEC code mentioned
+no = sionna.utils.ebnodb2no(ebno_db, num_bits_per_symbol, coderate=1)
+
+# Step 3: Create an instance of the AWGN channel model
+awgn = sionna.channel.AWGN()
+
+# Step 4: Apply the AWGN channel model
+# The channel takes a list of two items: the symbol tensor and the noise power density
+y = awgn([x, no])
+
+# The rest of the code is for visualization and is optional as per the instruction
+import matplotlib.pyplot as plt
+import numpy as np
+
+fig = plt.figure(figsize=(7, 7))
+ax = fig.add_subplot(111)
+plt.scatter(np.real(y), np.imag(y))  # Plot the real vs. imaginary components
+ax.set_aspect("equal", adjustable="box")
+plt.xlabel("Real Part")
+plt.ylabel("Imaginary Part")
+plt.grid(True, which="both", axis="both")
+plt.title("Received Symbols")
+```
+
+Be sure to ensure the code runs within the context that includes the necessary imports, variable definitions, and existing Sionna objects.
+
+### 7. INSTRUCTION:
+Create a scatter plot to visualize the received symbols in the complex plane after passing through the AWGN channel, including axis labels and equal aspect ratio settings.
+
+**ANSWER:**
+
+Based on the given context, the instruction is to create a scatter plot to visualize symbols received after passing through an Additive White Gaussian Noise (AWGN) channel. Here's the summarized code that accomplishes the task:
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+import sionna
+from sionna.utils import BinarySource, ebnodb2no
+from sionna.mapping import Constellation, Mapper
+from sionna.channel import AWGN
+
+# Generate a random batch of bit vectors for a 16-QAM constellation (4 bits per symbol)
+batch_size = 1000
+num_bits_per_symbol = 4
+binary_source = BinarySource()
+b = binary_source([batch_size, num_bits_per_symbol])
+
+# Create a 16-QAM Constellation and a Mapper to map bits to constellation symbols
+constellation = Constellation("qam", num_bits_per_symbol)
+mapper = Mapper(constellation=constellation)
+x = mapper(b)
+
+# AWGN channel with specified Eb/No
+ebno_db = 15
+no = ebnodb2no(ebno_db, num_bits_per_symbol, coderate=1)
+awgn = AWGN()
+y = awgn([x, no])
+
+# Scatter plot
+plt.figure(figsize=(7, 7))
+plt.scatter(np.real(y), np.imag(y), color='blue')
+plt.xlabel("Real Part")
+plt.ylabel("Imaginary Part")
+plt.title("Received Symbols in the Complex Plane")
+plt.grid(True, which="both", axis="both")
+plt.axis('equal')  # Set equal aspect ratio
+plt.show()
+```
+
+Make sure to run each code snippet from the context step by step since each step relies on variables and configurations from the previous steps (like `b`, `mapper`, and `x`). The final plot command should come after you've passed the symbols through the AWGN channel and stored them in `y`.
+
+The mentioned code will produce a scatter plot with an equal aspect ratio for both axes, ensuring that the unit scale is the same on both the x-axis (real part) and y-axis (imaginary part). The grid is enabled, and the plot includes appropriate axis labels. This visual representation helps to understand the impact of AWGN on the transmitted symbols in the complex plane.
+

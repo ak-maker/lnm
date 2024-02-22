@@ -1,0 +1,358 @@
+# Utility Functions
+
+## Metrics
+### class: sionna.utils.BitErrorRate(name='bit_error_rate', **kwargs)
+### class: sionna.utils.BitwiseMutualInformation(name='bitwise_mutual_information', **kwargs)
+### sionna.utils.compute_ber(b, b_hat)
+### sionna.utils.compute_bler(b, b_hat)
+### sionna.utils.compute_ser(s, s_hat)
+### sionna.utils.count_errors(b, b_hat)
+### sionna.utils.count_block_errors(b, b_hat)
+## Tensors
+### sionna.utils.expand_to_rank(tensor, target_rank, axis=- 1)
+### sionna.utils.flatten_dims(tensor, num_dims, axis)
+### sionna.utils.flatten_last_dims(tensor, num_dims=2)
+### sionna.utils.insert_dims(tensor, num_dims, axis=- 1)
+### sionna.utils.split_dim(tensor, shape, axis)
+### sionna.utils.matrix_sqrt(tensor)
+### sionna.utils.matrix_sqrt_inv(tensor)
+### sionna.utils.matrix_inv(tensor)
+### sionna.utils.matrix_pinv(tensor)
+## Miscellaneous
+### class: sionna.utils.BinarySource(dtype=tf.float32, seed=None, **kwargs)
+#### class: sionna.utils.SymbolSource(constellation_type=None, num_bits_per_symbol=None, constellation=None, return_indices=False, return_bits=False, seed=None, dtype=tf.complex64, **kwargs)
+### class: sionna.utils.QAMSource(num_bits_per_symbol=None, return_indices=False, return_bits=False, seed=None, dtype=tf.complex64, **kwargs)
+### class: sionna.utils.PAMSource(num_bits_per_symbol=None, return_indices=False, return_bits=False, seed=None, dtype=tf.complex64, **kwargs)
+### class: sionna.utils.plotting.PlotBER(title='Bit/Block Error Rate')
+### sionna.utils.sim_ber(mc_fun, ebno_dbs, batch_size, max_mc_iter, soft_estimates=False, num_target_bit_errors=None, num_target_block_errors=None, target_ber=None, target_bler=None, early_stop=True, graph_mode=None, distribute=None, verbose=True, forward_keyboard_interrupt=True, callback=None, dtype=tf.complex64)
+
+# Utility Functions
+
+The utilities sub-package of the Sionna library contains many convenience functions as well as extensions to existing TensorFlow functions.
+
+## Metrics
+### class: sionna.utils.BitErrorRate(name='bit_error_rate', **kwargs)
+Computes the average bit error rate (BER) between two binary tensors.
+This class implements a Keras metric for the bit error rate between two tensors of bits.
+Input
+b (tf.float32) – A tensor of arbitrary shape filled with ones and zeros.
+b_hat (tf.float32) – A tensor of the same shape as b filled with ones and zeros.
+Output
+tf.float32 – A scalar, the BER.
+### class: sionna.utils.BitwiseMutualInformation(name='bitwise_mutual_information', **kwargs)
+Computes the bitwise mutual information between bits and LLRs.
+This class implements a Keras metric for the bitwise mutual information between a tensor of bits and LLR (logits).
+Input
+bits (tf.float32) – A tensor of arbitrary shape filled with ones and zeros.
+llr (tf.float32) – A tensor of the same shape as bits containing logits.
+Output
+tf.float32 – A scalar, the bit-wise mutual information.
+### sionna.utils.compute_ber(b, b_hat)
+Computes the bit error rate (BER) between two binary tensors.
+Input
+b (tf.float32) – A tensor of arbitrary shape filled with ones and zeros.
+b_hat (tf.float32) – A tensor of the same shape as b filled with ones and zeros.
+Output
+tf.float64 – A scalar, the BER.
+### sionna.utils.compute_bler(b, b_hat)
+Computes the block error rate (BLER) between two binary tensors.
+A block error happens if at least one element of b and b_hat differ in one block. The BLER is evaluated over the last dimension of the input, i. e., all elements of the last dimension are considered to define a block.
+This is also sometimes referred to as word error rate or frame error rate.
+Input
+b (tf.float32) – A tensor of arbitrary shape filled with ones and zeros.
+b_hat (tf.float32) – A tensor of the same shape as b filled with ones and zeros.
+Output
+tf.float64 – A scalar, the BLER.
+### sionna.utils.compute_ser(s, s_hat)
+Computes the symbol error rate (SER) between two integer tensors.
+Input
+s (tf.int) – A tensor of arbitrary shape filled with integers indicating the symbol indices.
+s_hat (tf.int) – A tensor of the same shape as s filled with integers indicating the estimated symbol indices.
+Output
+tf.float64 – A scalar, the SER.
+### sionna.utils.count_errors(b, b_hat)
+Counts the number of bit errors between two binary tensors.
+Input
+b (tf.float32) – A tensor of arbitrary shape filled with ones and zeros.
+b_hat (tf.float32) – A tensor of the same shape as b filled with ones and zeros.
+Output
+tf.int64 – A scalar, the number of bit errors.
+### sionna.utils.count_block_errors(b, b_hat)
+Counts the number of block errors between two binary tensors.
+A block error happens if at least one element of b and b_hat differ in one block. The BLER is evaluated over the last dimension of the input, i. e., all elements of the last dimension are considered to define a block.
+This is also sometimes referred to as word error rate or frame error rate.
+Input
+b (tf.float32) – A tensor of arbitrary shape filled with ones and zeros.
+b_hat (tf.float32) – A tensor of the same shape as b filled with ones and zeros.
+Output
+tf.int64 – A scalar, the number of block errors.
+## Tensors
+### sionna.utils.expand_to_rank(tensor, target_rank, axis=- 1)
+Inserts as many axes to a tensor as needed to achieve a desired rank.
+This operation inserts additional dimensions to a tensor starting at axis, so that so that the rank of the resulting tensor has rank target_rank. The dimension index follows Python indexing rules, i.e., zero-based, where a negative index is counted backward from the end.
+Parameters
+tensor – A tensor.
+target_rank (int) – The rank of the output tensor. If target_rank is smaller than the rank of tensor, the function does nothing.
+axis (int) – The dimension index at which to expand the shape of tensor. Given a tensor of D dimensions, axis must be within the range [-(D+1), D] (inclusive).
+Returns
+A tensor with the same data as tensor, with target_rank- rank(tensor) additional dimensions inserted at the index specified by axis. If target_rank <= rank(tensor), tensor is returned.
+### sionna.utils.flatten_dims(tensor, num_dims, axis)
+Flattens a specified set of dimensions of a tensor.
+This operation flattens num_dims dimensions of a tensor starting at a given axis.
+Parameters
+tensor – A tensor.
+num_dims (int) – The number of dimensions to combine. Must be larger than two and less or equal than the rank of tensor.
+axis (int) – The index of the dimension from which to start.
+Returns
+A tensor of the same type as tensor with num_dims-1 lesser dimensions, but the same number of elements.
+### sionna.utils.flatten_last_dims(tensor, num_dims=2)
+Flattens the last n dimensions of a tensor.
+This operation flattens the last num_dims dimensions of a tensor. It is a simplified version of the function flatten_dims.
+Parameters
+tensor – A tensor.
+num_dims (int) – The number of dimensions to combine. Must be greater than or equal to two and less or equal than the rank of tensor.
+Returns
+A tensor of the same type as tensor with num_dims-1 lesser dimensions, but the same number of elements.
+### sionna.utils.insert_dims(tensor, num_dims, axis=- 1)
+Adds multiple length-one dimensions to a tensor.
+This operation is an extension to TensorFlow`s expand_dims function. It inserts num_dims dimensions of length one starting from the dimension axis of a tensor. The dimension index follows Python indexing rules, i.e., zero-based, where a negative index is counted backward from the end.
+Parameters
+tensor – A tensor.
+num_dims (int) – The number of dimensions to add.
+axis – The dimension index at which to expand the shape of tensor. Given a tensor of D dimensions, axis must be within the range [-(D+1), D] (inclusive).
+Returns
+A tensor with the same data as tensor, with num_dims additional dimensions inserted at the index specified by axis.
+### sionna.utils.split_dim(tensor, shape, axis)
+Reshapes a dimension of a tensor into multiple dimensions.
+This operation splits the dimension axis of a tensor into multiple dimensions according to shape.
+Parameters
+tensor – A tensor.
+shape (list or TensorShape) – The shape to which the dimension should be reshaped.
+axis (int) – The index of the axis to be reshaped.
+Returns
+A tensor of the same type as tensor with len(shape)-1 additional dimensions, but the same number of elements.
+### sionna.utils.matrix_sqrt(tensor)
+Computes the square root of a matrix.
+Given a batch of Hermitian positive semi-definite matrices
+\mathbf{A}
+, returns matrices
+\mathbf{B}
+, such that
+\mathbf{B}\mathbf{B}^H = \mathbf{A}
+.
+The two inner dimensions are assumed to correspond to the matrix rows and columns, respectively.
+Parameters
+tensor ([..., M, M]) – A tensor of rank greater than or equal to two.
+Returns
+A tensor of the same shape and type as tensor containing the matrix square root of its last two dimensions.
+Note
+If you want to use this function in Graph mode with XLA, i.e., within a function that is decorated with @tf.function(jit_compile=True), you must set sionna.config.xla_compat=true. See xla_compat.
+### sionna.utils.matrix_sqrt_inv(tensor)
+Computes the inverse square root of a Hermitian matrix.
+Given a batch of Hermitian positive definite matrices
+\mathbf{A}
+, with square root matrices
+\mathbf{B}
+, such that
+\mathbf{B}\mathbf{B}^H = \mathbf{A}
+, the function returns
+\mathbf{B}^{-1}
+, such that
+\mathbf{B}^{-1}\mathbf{B}=\mathbf{I}
+.
+The two inner dimensions are assumed to correspond to the matrix rows and columns, respectively.
+Parameters
+tensor ([..., M, M]) – A tensor of rank greater than or equal to two.
+Returns
+A tensor of the same shape and type as tensor containing the inverse matrix square root of its last two dimensions.
+Note
+If you want to use this function in Graph mode with XLA, i.e., within a function that is decorated with @tf.function(jit_compile=True), you must set sionna.Config.xla_compat=true. See xla_compat.
+### sionna.utils.matrix_inv(tensor)
+Computes the inverse of a Hermitian matrix.
+Given a batch of Hermitian positive definite matrices
+\mathbf{A}
+, the function returns
+\mathbf{A}^{-1}
+, such that
+\mathbf{A}^{-1}\mathbf{A}=\mathbf{I}
+.
+The two inner dimensions are assumed to correspond to the matrix rows and columns, respectively.
+Parameters
+tensor ([..., M, M]) – A tensor of rank greater than or equal to two.
+Returns
+A tensor of the same shape and type as tensor, containing the inverse of its last two dimensions.
+Note
+If you want to use this function in Graph mode with XLA, i.e., within a function that is decorated with @tf.function(jit_compile=True), you must set sionna.Config.xla_compat=true. See xla_compat.
+### sionna.utils.matrix_pinv(tensor)
+Computes the Moore–Penrose (or pseudo) inverse of a matrix.
+Given a batch of
+M \times K
+matrices
+\mathbf{A}
+with rank
+K
+(i.e., linearly independent columns), the function returns
+\mathbf{A}^+
+, such that
+\mathbf{A}^{+}\mathbf{A}=\mathbf{I}_K
+.
+The two inner dimensions are assumed to correspond to the matrix rows and columns, respectively.
+Parameters
+tensor ([..., M, K]) – A tensor of rank greater than or equal to two.
+Returns
+A tensor of shape ([…, K,K]) of the same type as tensor, containing the pseudo inverse of its last two dimensions.
+Note
+If you want to use this function in Graph mode with XLA, i.e., within a function that is decorated with @tf.function(jit_compile=True), you must set sionna.config.xla_compat=true. See xla_compat.
+## Miscellaneous
+### class: sionna.utils.BinarySource(dtype=tf.float32, seed=None, **kwargs)
+Layer generating random binary tensors.
+Parameters
+dtype (tf.DType) – Defines the output datatype of the layer. Defaults to tf.float32.
+seed (int or None) – Set the seed for the random generator used to generate the bits. Set to None for random initialization of the RNG.
+Input
+shape (1D tensor/array/list, int) – The desired shape of the output tensor.
+Output
+shape, dtype – Tensor filled with random binary values.
+#### class: sionna.utils.SymbolSource(constellation_type=None, num_bits_per_symbol=None, constellation=None, return_indices=False, return_bits=False, seed=None, dtype=tf.complex64, **kwargs)
+Layer generating a tensor of arbitrary shape filled with random constellation symbols. Optionally, the symbol indices and/or binary representations of the constellation symbols can be returned.
+Parameters
+constellation_type (One of ["qam", "pam", "custom"], str) – For “custom”, an instance of Constellation must be provided.
+num_bits_per_symbol (int) – The number of bits per constellation symbol. Only required for constellation_type in [“qam”, “pam”].
+constellation (Constellation) – An instance of Constellation or None. In the latter case, constellation_type and num_bits_per_symbol must be provided.
+return_indices (bool) – If enabled, the function also returns the symbol indices. Defaults to False.
+return_bits (bool) – If enabled, the function also returns the binary symbol representations (i.e., bit labels). Defaults to False.
+seed (int or None) – The seed for the random generator. None leads to a random initialization of the RNG. Defaults to None.
+dtype (One of [tf.complex64, tf.complex128], tf.DType) – The output dtype. Defaults to tf.complex64.
+Input
+shape (1D tensor/array/list, int) – The desired shape of the output tensor.
+Output
+symbols (shape, dtype) – Tensor filled with random symbols of the chosen constellation_type.
+symbol_indices (shape, tf.int32) – Tensor filled with the symbol indices. Only returned if return_indices is True.
+bits ([shape, num_bits_per_symbol], tf.int32) – Tensor filled with the binary symbol representations (i.e., bit labels). Only returned if return_bits is True.
+### class: sionna.utils.QAMSource(num_bits_per_symbol=None, return_indices=False, return_bits=False, seed=None, dtype=tf.complex64, **kwargs)
+Layer generating a tensor of arbitrary shape filled with random QAM symbols. Optionally, the symbol indices and/or binary representations of the constellation symbols can be returned.
+Parameters
+num_bits_per_symbol (int) – The number of bits per constellation symbol, e.g., 4 for QAM16.
+return_indices (bool) – If enabled, the function also returns the symbol indices. Defaults to False.
+return_bits (bool) – If enabled, the function also returns the binary symbol representations (i.e., bit labels). Defaults to False.
+seed (int or None) – The seed for the random generator. None leads to a random initialization of the RNG. Defaults to None.
+dtype (One of [tf.complex64, tf.complex128], tf.DType) – The output dtype. Defaults to tf.complex64.
+Input
+shape (1D tensor/array/list, int) – The desired shape of the output tensor.
+Output
+symbols (shape, dtype) – Tensor filled with random QAM symbols.
+symbol_indices (shape, tf.int32) – Tensor filled with the symbol indices. Only returned if return_indices is True.
+bits ([shape, num_bits_per_symbol], tf.int32) – Tensor filled with the binary symbol representations (i.e., bit labels). Only returned if return_bits is True.
+### class: sionna.utils.PAMSource(num_bits_per_symbol=None, return_indices=False, return_bits=False, seed=None, dtype=tf.complex64, **kwargs)
+Layer generating a tensor of arbitrary shape filled with random PAM symbols. Optionally, the symbol indices and/or binary representations of the constellation symbols can be returned.
+Parameters
+num_bits_per_symbol (int) – The number of bits per constellation symbol, e.g., 1 for BPSK.
+return_indices (bool) – If enabled, the function also returns the symbol indices. Defaults to False.
+return_bits (bool) – If enabled, the function also returns the binary symbol representations (i.e., bit labels). Defaults to False.
+seed (int or None) – The seed for the random generator. None leads to a random initialization of the RNG. Defaults to None.
+dtype (One of [tf.complex64, tf.complex128], tf.DType) – The output dtype. Defaults to tf.complex64.
+Input
+shape (1D tensor/array/list, int) – The desired shape of the output tensor.
+Output
+symbols (shape, dtype) – Tensor filled with random PAM symbols.
+symbol_indices (shape, tf.int32) – Tensor filled with the symbol indices. Only returned if return_indices is True.
+bits ([shape, num_bits_per_symbol], tf.int32) – Tensor filled with the binary symbol representations (i.e., bit labels). Only returned if return_bits is True.
+### class: sionna.utils.plotting.PlotBER(title='Bit/Block Error Rate')
+Provides a plotting object to simulate and store BER/BLER curves.
+Parameters
+title (str) – A string defining the title of the figure. Defaults to “Bit/Block Error Rate”.
+Input
+snr_db (float) – Python array (or list of Python arrays) of additional SNR values to be plotted.
+ber (float) – Python array (or list of Python arrays) of additional BERs corresponding to snr_db.
+legend (str) – String (or list of strings) of legends entries.
+is_bler (bool) – A boolean (or list of booleans) defaults to False. If True, ber will be interpreted as BLER.
+show_ber (bool) – A boolean defaults to True. If True, BER curves will be plotted.
+show_bler (bool) – A boolean defaults to True. If True, BLER curves will be plotted.
+xlim (tuple of floats) – Defaults to None. A tuple of two floats defining x-axis limits.
+ylim (tuple of floats) – Defaults to None. A tuple of two floats defining y-axis limits.
+save_fig (bool) – A boolean defaults to False. If True, the figure is saved as file.
+path (str) – A string defining where to save the figure (if save_fig is True).
+add(ebno_db, ber, is_bler=False, legend='')[source]
+Add static reference curves.
+Input
+ebno_db (float) – Python array or list of floats defining the SNR points.
+ber (float) – Python array or list of floats defining the BER corresponding to each SNR point.
+is_bler (bool) – A boolean defaults to False. If True, ber is interpreted as BLER.
+legend (str) – A string defining the text of the legend entry.
+property
+ber
+List containing all stored BER curves.
+property
+is_bler
+List of booleans indicating if ber shall be interpreted as BLER.
+property
+legend
+List containing all stored legend entries curves.
+remove(idx=- 1)[source]
+Remove curve with index idx.
+Input
+idx (int) – An integer defining the index of the dataset that should be removed. Negative indexing is possible.
+reset()[source]
+Remove all internal data.
+simulate(mc_fun, ebno_dbs, batch_size, max_mc_iter, legend='', add_ber=True, add_bler=False, soft_estimates=False, num_target_bit_errors=None, num_target_block_errors=None, target_ber=None, target_bler=None, early_stop=True, graph_mode=None, distribute=None, add_results=True, forward_keyboard_interrupt=True, show_fig=True, verbose=True)[source]
+Simulate BER/BLER curves for given Keras model and saves the results.
+Internally calls sionna.utils.sim_ber.
+Input
+mc_fun – Callable that yields the transmitted bits b and the receiver’s estimate b_hat for a given batch_size and ebno_db. If soft_estimates is True, b_hat is interpreted as logit.
+ebno_dbs (ndarray of floats) – SNR points to be evaluated.
+batch_size (tf.int32) – Batch-size for evaluation.
+max_mc_iter (int) – Max. number of Monte-Carlo iterations per SNR point.
+legend (str) – Name to appear in legend.
+add_ber (bool) – Defaults to True. Indicate if BER should be added to plot.
+add_bler (bool) – Defaults to False. Indicate if BLER should be added to plot.
+soft_estimates (bool) – A boolean, defaults to False. If True, b_hat is interpreted as logit and additional hard-decision is applied internally.
+num_target_bit_errors (int) – Target number of bit errors per SNR point until the simulation stops.
+num_target_block_errors (int) – Target number of block errors per SNR point until the simulation stops.
+target_ber (tf.float32) – Defaults to None. The simulation stops after the first SNR point which achieves a lower bit error rate as specified by target_ber. This requires early_stop to be True.
+target_bler (tf.float32) – Defaults to None. The simulation stops after the first SNR point which achieves a lower block error rate as specified by target_bler. This requires early_stop to be True.
+early_stop (bool) – A boolean defaults to True. If True, the simulation stops after the first error-free SNR point (i.e., no error occurred after max_mc_iter Monte-Carlo iterations).
+graph_mode (One of [“graph”, “xla”], str) – A string describing the execution mode of mc_fun. Defaults to None. In this case, mc_fun is executed as is.
+distribute (None (default) | “all” | list of indices | tf.distribute.strategy) – Distributes simulation on multiple parallel devices. If None, multi-device simulations are deactivated. If “all”, the workload will be automatically distributed across all available GPUs via the tf.distribute.MirroredStrategy. If an explicit list of indices is provided, only the GPUs with the given indices will be used. Alternatively, a custom tf.distribute.strategy can be provided. Note that the same batch_size will be used for all GPUs in parallel, but the number of Monte-Carlo iterations max_mc_iter will be scaled by the number of devices such that the same number of total samples is simulated. However, all stopping conditions are still in-place which can cause slight differences in the total number of simulated samples.
+add_results (bool) – Defaults to True. If True, the simulation results will be appended to the internal list of results.
+show_fig (bool) – Defaults to True. If True, a BER figure will be plotted.
+verbose (bool) – A boolean defaults to True. If True, the current progress will be printed.
+forward_keyboard_interrupt (bool) – A boolean defaults to True. If False, KeyboardInterrupts will be catched internally and not forwarded (e.g., will not stop outer loops). If False, the simulation ends and returns the intermediate simulation results.
+Output
+(ber, bler) – Tuple:
+ber (float) – The simulated bit-error rate.
+bler (float) – The simulated block-error rate.
+property
+snr
+List containing all stored SNR curves.
+property
+title
+Title of the plot.
+### sionna.utils.sim_ber(mc_fun, ebno_dbs, batch_size, max_mc_iter, soft_estimates=False, num_target_bit_errors=None, num_target_block_errors=None, target_ber=None, target_bler=None, early_stop=True, graph_mode=None, distribute=None, verbose=True, forward_keyboard_interrupt=True, callback=None, dtype=tf.complex64)
+Simulates until target number of errors is reached and returns BER/BLER.
+The simulation continues with the next SNR point if either num_target_bit_errors bit errors or num_target_block_errors block errors is achieved. Further, it continues with the next SNR point after max_mc_iter batches of size batch_size have been simulated. Early stopping allows to stop the simulation after the first error-free SNR point or after reaching a certain target_ber or target_bler.
+Input
+mc_fun (callable) – Callable that yields the transmitted bits b and the receiver’s estimate b_hat for a given batch_size and ebno_db. If soft_estimates is True, b_hat is interpreted as logit.
+ebno_dbs (tf.float32) – A tensor containing SNR points to be evaluated.
+batch_size (tf.int32) – Batch-size for evaluation.
+max_mc_iter (tf.int32) – Maximum number of Monte-Carlo iterations per SNR point.
+soft_estimates (bool) – A boolean, defaults to False. If True, b_hat is interpreted as logit and an additional hard-decision is applied internally.
+num_target_bit_errors (tf.int32) – Defaults to None. Target number of bit errors per SNR point until the simulation continues to next SNR point.
+num_target_block_errors (tf.int32) – Defaults to None. Target number of block errors per SNR point until the simulation continues
+target_ber (tf.float32) – Defaults to None. The simulation stops after the first SNR point which achieves a lower bit error rate as specified by target_ber. This requires early_stop to be True.
+target_bler (tf.float32) – Defaults to None. The simulation stops after the first SNR point which achieves a lower block error rate as specified by target_bler. This requires early_stop to be True.
+early_stop (bool) – A boolean defaults to True. If True, the simulation stops after the first error-free SNR point (i.e., no error occurred after max_mc_iter Monte-Carlo iterations).
+graph_mode (One of [“graph”, “xla”], str) – A string describing the execution mode of mc_fun. Defaults to None. In this case, mc_fun is executed as is.
+distribute (None (default) | “all” | list of indices | tf.distribute.strategy) – Distributes simulation on multiple parallel devices. If None, multi-device simulations are deactivated. If “all”, the workload will be automatically distributed across all available GPUs via the tf.distribute.MirroredStrategy. If an explicit list of indices is provided, only the GPUs with the given indices will be used. Alternatively, a custom tf.distribute.strategy can be provided. Note that the same batch_size will be used for all GPUs in parallel, but the number of Monte-Carlo iterations max_mc_iter will be scaled by the number of devices such that the same number of total samples is simulated. However, all stopping conditions are still in-place which can cause slight differences in the total number of simulated samples.
+verbose (bool) – A boolean defaults to True. If True, the current progress will be printed.
+forward_keyboard_interrupt (bool) – A boolean defaults to True. If False, KeyboardInterrupts will be catched internally and not forwarded (e.g., will not stop outer loops). If False, the simulation ends and returns the intermediate simulation results.
+callback (None (default) | callable) – If specified, callback will be called after each Monte-Carlo step. Can be used for logging or advanced early stopping. Input signature of callback must match callback(mc_iter, snr_idx, ebno_dbs, bit_errors, block_errors, nb_bits, nb_blocks) where mc_iter denotes the number of processed batches for the current SNR point, snr_idx is the index of the current SNR point, ebno_dbs is the vector of all SNR points to be evaluated, bit_errors the vector of number of bit errors for each SNR point, block_errors the vector of number of block errors, nb_bits the vector of number of simulated bits, nb_blocks the vector of number of simulated blocks, respectively. If callable returns sim_ber.CALLBACK_NEXT_SNR, early stopping is detected and the simulation will continue with the next SNR point. If callable returns sim_ber.CALLBACK_STOP, the simulation is stopped immediately. For sim_ber.CALLBACK_CONTINUE continues with the simulation.
+dtype (tf.complex64) – Datatype of the callable mc_fun to be used as input/output.
+Output
+(ber, bler) – Tuple:
+ber (tf.float32) – The bit-error rate.
+bler (tf.float32) – The block-error rate.
+Raises
+AssertionError – If soft_estimates is not bool.
+AssertionError – If dtype is not tf.complex.
+Note
+This function is implemented based on tensors to allow full compatibility with tf.function(). However, to run simulations in graph mode, the provided mc_fun must use the @tf.function() decorator.

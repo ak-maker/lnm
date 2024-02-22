@@ -1,0 +1,458 @@
+# Wireless
+
+## 3GPP 38.901 channel models
+### class: sionna.channel.tr38901.TDL(model, delay_spread, carrier_frequency, num_sinusoids=20, los_angle_of_arrival=PI / 4., min_speed=0., max_speed=None, num_rx_ant=1, num_tx_ant=1, spatial_corr_mat=None, rx_corr_mat=None, tx_corr_mat=None, dtype=tf.complex64)
+### class: sionna.channel.tr38901.CDL(model, delay_spread, carrier_frequency, ut_array, bs_array, direction, min_speed=0., max_speed=None, dtype=tf.complex64)
+
+# Wireless
+
+This module provides layers and functions that implement wireless channel models. Models currently available include AWGN, flat-fading with (optional) SpatialCorrelation, RayleighBlockFading, as well as models from the 3rd Generation Partnership Project (3GPP) [TR38901]: TDL, CDL, UMi, UMa, and RMa. It is also possible to use externally generated CIRs.
+
+Apart from flat-fading, all of these models generate channel impulse responses (CIRs) that can then be used to implement a channel transfer function in the time domain or assuming an OFDM waveform.
+
+This is achieved using the different functions, classes, and Keras layers which operate as shown in the figures below.
+
+Fig. 7 Channel module architecture for time domain simulations.
+
+Fig. 8 Channel module architecture for simulations assuming OFDM waveform.
+
+A channel model generate CIRs from which channel responses in the time domain or in the frequency domain are computed using the cir_to_time_channel() or cir_to_ofdm_channel() functions, respectively. If one does not need access to the raw CIRs, the GenerateTimeChannel and GenerateOFDMChannel classes can be used to conveniently sample CIRs and generate channel responses in the desired domain.
+
+Once the channel responses in the time or frequency domain are computed, they can be applied to the channel input using the ApplyTimeChannel or ApplyOFDMChannel Keras layers.
+
+The following code snippets show how to setup and run a Rayleigh block fading model assuming an OFDM waveform, and without accessing the CIRs or channel responses. This is the easiest way to setup a channel model. Setting-up other models is done in a similar way, except for AWGN (see the AWGN class documentation).
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+channel  = OFDMChannel(channel_model = rayleigh,
+
+                       resource_grid = rg)
+
+where rg is an instance of ResourceGrid.
+
+Running the channel model is done as follows:
+
+# x is the channel input
+
+# no is the noise variance
+
+y = channel([x, no])
+
+To use the time domain representation of the channel, one can use TimeChannel instead of OFDMChannel.
+
+If access to the channel responses is needed, one can separate their generation from their application to the channel input by setting up the channel model as follows:
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+generate_channel = GenerateOFDMChannel(channel_model = rayleigh,
+
+                                       resource_grid = rg)
+
+
+
+apply_channel = ApplyOFDMChannel()
+
+where rg is an instance of ResourceGrid. Running the channel model is done as follows:
+
+# Generate a batch of channel responses
+
+h = generate_channel(batch_size)
+
+# Apply the channel
+
+# x is the channel input
+
+# no is the noise variance
+
+y = apply_channel([x, h, no])
+
+Generating and applying the channel in the time domain can be achieved by using GenerateTimeChannel and ApplyTimeChannel instead of GenerateOFDMChannel and ApplyOFDMChannel, respectively.
+
+To access the CIRs, setting up the channel can be done as follows:
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+apply_channel = ApplyOFDMChannel()
+
+and running the channel model as follows:
+
+cir = rayleigh(batch_size)
+
+h = cir_to_ofdm_channel(frequencies, *cir)
+
+y = apply_channel([x, h, no])
+
+where frequencies are the subcarrier frequencies in the baseband, which can be computed using the subcarrier_frequencies() utility function.
+
+Applying the channel in the time domain can be done by using cir_to_time_channel() and ApplyTimeChannel instead of cir_to_ofdm_channel() and ApplyOFDMChannel, respectively.
+
+For the purpose of the present document, the following symbols apply:
+
+N_T (u)
+
+Number of transmitters (transmitter index)
+
+N_T (u)
+
+Number of receivers (receiver index)
+
+N_{TA} (k)
+
+Number of antennas per transmitter (transmit antenna index)
+
+N_{RA} (l)
+
+Number of antennas per receiver (receive antenna index)
+
+N_S (s)
+
+Number of OFDM symbols (OFDM symbol index)
+
+N_F (n)
+
+Number of subcarriers (subcarrier index)
+
+N_B (b)
+
+Number of time samples forming the channel input (baseband symbol index)
+
+L_{\text{min}}
+
+Smallest time-lag for the discrete complex baseband channel
+
+L_{\text{max}}
+
+Largest time-lag for the discrete complex baseband channel
+
+M (m)
+
+Number of paths (clusters) forming a power delay profile (path index)
+
+\tau_m(t)
+
+m^{th}
+
+path (cluster) delay at time step
+
+t
+
+a_m(t)
+
+m^{th}
+
+path (cluster) complex coefficient at time step
+
+\Delta_f
+
+Subcarrier spacing
+
+W
+
+Bandwidth
+
+N_0
+
+Noise variance
+
+All transmitters are equipped with
+
+N_{TA}
+
+antennas and all receivers with
+
+N_{RA}
+
+antennas.
+
+A channel model, such as RayleighBlockFading or UMi, is used to generate for each link between antenna
+
+k
+
+of transmitter
+
+u
+
+and antenna
+
+l
+
+of receiver
+
+v
+
+a power delay profile
+
+(a_{u, k, v, l, m}(t), \tau_{u, v, m}), 0 \leq m \leq M-1
+
+. The delays are assumed not to depend on time
+
+t
+
+, and transmit and receive antennas
+
+k
+
+and
+
+l
+
+. Such a power delay profile corresponds to the channel impulse response
+
+h_{u, k, v, l}(t,\tau) =
+
+\sum_{m=0}^{M-1} a_{u, k, v, l,m}(t) \delta(\tau - \tau_{u, v, m})
+
+where
+
+\delta(\cdot)
+
+is the Dirac delta measure. For example, in the case of Rayleigh block fading, the power delay profiles are time-invariant and such that for every link
+
+(u, k, v, l)
+
+\begin{split}\begin{align}
+
+   M                     &= 1\\
+
+   \tau_{u, v, 0}  &= 0\\
+
+   a_{u, k, v, l, 0}     &\sim \mathcal{CN}(0,1).
+
+\end{align}\end{split}
+
+.
+
+3GPP channel models use the procedure depicted in [TR38901] to generate power delay profiles. With these models, the power delay profiles are time-variant in the event of mobility.
+
+### class: sionna.channel.tr38901.TDL(model, delay_spread, carrier_frequency, num_sinusoids=20, los_angle_of_arrival=PI / 4., min_speed=0., max_speed=None, num_rx_ant=1, num_tx_ant=1, spatial_corr_mat=None, rx_corr_mat=None, tx_corr_mat=None, dtype=tf.complex64)
+Tapped delay line (TDL) channel model from the 3GPP [TR38901] specification.
+The power delay profiles (PDPs) are normalized to have a total energy of one.
+Channel coefficients are generated using a sum-of-sinusoids model [SoS]. Channel aging is simulated in the event of mobility.
+If a minimum speed and a maximum speed are specified such that the maximum speed is greater than the minimum speed, then speeds are randomly and uniformly sampled from the specified interval for each link and each batch example.
+The TDL model only works for systems with a single transmitter and a single receiver. The transmitter and receiver can be equipped with multiple antennas. Spatial correlation is simulated through filtering by specified correlation matrices.
+The spatial_corr_mat parameter can be used to specify an arbitrary spatial correlation matrix. In particular, it can be used to model correlated cross-polarized transmit and receive antennas as follows (see, e.g., Annex G.2.3.2.1 [TS38141-1]):
+\mathbf{R} = \mathbf{R}_{\text{rx}} \otimes \mathbf{\Gamma} \otimes \mathbf{R}_{\text{tx}}
+where
+\mathbf{R}
+is the spatial correlation matrix spatial_corr_mat,
+\mathbf{R}_{\text{rx}}
+the spatial correlation matrix at the receiver with same polarization,
+\mathbf{R}_{\text{rx}}
+the spatial correlation matrix at the transmitter with same polarization, and
+\mathbf{\Gamma}
+the polarization correlation matrix.
+\mathbf{\Gamma}
+is 1x1 for single-polarized antennas, 2x2 when only the transmit or receive antennas are cross-polarized, and 4x4 when transmit and receive antennas are cross-polarized.
+It is also possible not to specify spatial_corr_mat, but instead the correlation matrices at the receiver and transmitter, using the rx_corr_mat and tx_corr_mat parameters, respectively. This can be useful when single polarized antennas are simulated, and it is also more computationally efficient. This is equivalent to setting spatial_corr_mat to :
+\mathbf{R} = \mathbf{R}_{\text{rx}} \otimes \mathbf{R}_{\text{tx}}
+where
+\mathbf{R}_{\text{rx}}
+is the correlation matrix at the receiver rx_corr_mat and
+\mathbf{R}_{\text{tx}}
+the correlation matrix at the transmitter tx_corr_mat.
+Example
+The following code snippet shows how to setup a TDL channel model assuming an OFDM waveform:
+>>> tdl = TDL(model = "A",
+...           delay_spread = 300e-9,
+...           carrier_frequency = 3.5e9,
+...           min_speed = 0.0,
+...           max_speed = 3.0)
+>>>
+>>> channel = OFDMChannel(channel_model = tdl,
+...                       resource_grid = rg)
+where rg is an instance of ResourceGrid.
+Notes
+The following tables from [TR38901] provide typical values for the delay spread.
+Model                        Delay Spread [ns]
+Very short delay spread      10
+Short short delay spread     10
+Nominal delay spread         100
+Long delay spread            300
+Very long delay spread       1000
+
+                                                Frequency [GHz]
+Delay spread [ns]                               2       6       15      28      39      60      70
+
+Indoor office           Short delay profile     20      16      16      16      16      16      16
+Indoor office           Normal delay profile    39      30      24      20      18      16      16
+Indoor office           Long delay profile      59      53      47      43      41      38      37
+UMi Street-canyon       Short delay profile     65      45      37      32      30      27      26
+UMi Street-canyon       Normal delay profile    129     93      76      66      61      55      53
+UMi Street-canyon       Long delay profile      634     316     307     301     297     293     291
+UMa                     Short delay profile     93      93      85      80      78      75      74
+UMa                     Normal delay profile    363     363     302     266     249     228     221
+UMa                     Long delay profile      1148    1148    955     841     786     720     698
+RMa / RMa O2I           Short delay profile     32      32      N/A     N/A     N/A     N/A     N/A
+RMa / RMa O2I           Normal delay profile    37      37      N/A     N/A     N/A     N/A     N/A
+RMa / RMa O2I           Long delay profile      153     153     N/A     N/A     N/A     N/A     N/A
+UMi / UMa O2I           Normal delay profile    242     242     242     242     242     242     242
+UMi / UMa O2I           Long delay profile      616     616     616     616     616     616     616
+
+
+Parameters
+model (str) – TDL model to use. Must be one of “A”, “B”, “C”, “D”, “E”, “A30”, “B100”, or “C300”.
+delay_spread (float) – RMS delay spread [s]. For the “A30”, “B100”, and “C300” models, the delay spread must be set to 30ns, 100ns, and 300ns, respectively.
+carrier_frequency (float) – Carrier frequency [Hz]
+num_sinusoids (int) – Number of sinusoids for the sum-of-sinusoids model. Defaults to 20.
+los_angle_of_arrival (float) – Angle-of-arrival for LoS path [radian]. Only used with LoS models. Defaults to
+\pi/4
+.
+min_speed (float) – Minimum speed [m/s]. Defaults to 0.
+max_speed (None or float) – Maximum speed [m/s]. If set to None, then max_speed takes the same value as min_speed. Defaults to None.
+num_rx_ant (int) – Number of receive antennas. Defaults to 1.
+num_tx_ant (int) – Number of transmit antennas. Defaults to 1.
+spatial_corr_mat ([num_rx_ant*num_tx_ant,num_rx_ant*num_tx_ant], tf.complex or None) – Spatial correlation matrix. If not set to None, then rx_corr_mat and tx_corr_mat are ignored and this matrix is used for spatial correlation. If set to None and rx_corr_mat and tx_corr_mat are also set to None, then no correlation is applied. Defaults to None.
+rx_corr_mat ([num_rx_ant,num_rx_ant], tf.complex or None) – Spatial correlation matrix for the receiver. If set to None and spatial_corr_mat is also set to None, then no receive correlation is applied. Defaults to None.
+tx_corr_mat ([num_tx_ant,num_tx_ant], tf.complex or None) – Spatial correlation matrix for the transmitter. If set to None and spatial_corr_mat is also set to None, then no transmit correlation is applied. Defaults to None.
+dtype (Complex tf.DType) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+Input
+batch_size (int) – Batch size
+num_time_steps (int) – Number of time steps
+sampling_frequency (float) – Sampling frequency [Hz]
+Output
+a ([batch size, num_rx = 1, num_rx_ant = 1, num_tx = 1, num_tx_ant = 1, num_paths, num_time_steps], tf.complex) – Path coefficients
+tau ([batch size, num_rx = 1, num_tx = 1, num_paths], tf.float) – Path delays [s]
+property
+delay_spread
+RMS delay spread [s]
+property
+delays
+Path delays [s]
+property
+k_factor
+K-factor in linear scale. Only available with LoS models.
+property
+los
+True if this is a LoS model. False otherwise.
+property
+mean_power_los
+LoS component power in linear scale. Only available with LoS models.
+property
+mean_powers
+Path powers in linear scale
+property
+num_clusters
+Number of paths (
+M
+)
+### class: sionna.channel.tr38901.CDL(model, delay_spread, carrier_frequency, ut_array, bs_array, direction, min_speed=0., max_speed=None, dtype=tf.complex64)
+Clustered delay line (CDL) channel model from the 3GPP [TR38901] specification.
+The power delay profiles (PDPs) are normalized to have a total energy of one.
+If a minimum speed and a maximum speed are specified such that the maximum speed is greater than the minimum speed, then UTs speeds are randomly and uniformly sampled from the specified interval for each link and each batch example.
+The CDL model only works for systems with a single transmitter and a single receiver. The transmitter and receiver can be equipped with multiple antennas.
+Example
+The following code snippet shows how to setup a CDL channel model assuming an OFDM waveform:
+>>> # Panel array configuration for the transmitter and receiver
+>>> bs_array = PanelArray(num_rows_per_panel = 4,
+...                       num_cols_per_panel = 4,
+...                       polarization = 'dual',
+...                       polarization_type = 'cross',
+...                       antenna_pattern = '38.901',
+...                       carrier_frequency = 3.5e9)
+>>> ut_array = PanelArray(num_rows_per_panel = 1,
+...                       num_cols_per_panel = 1,
+...                       polarization = 'single',
+...                       polarization_type = 'V',
+...                       antenna_pattern = 'omni',
+...                       carrier_frequency = 3.5e9)
+>>> # CDL channel model
+>>> cdl = CDL(model = "A",
+>>>           delay_spread = 300e-9,
+...           carrier_frequency = 3.5e9,
+...           ut_array = ut_array,
+...           bs_array = bs_array,
+...           direction = 'uplink')
+>>> channel = OFDMChannel(channel_model = cdl,
+...                       resource_grid = rg)
+where rg is an instance of ResourceGrid.
+Notes
+The following tables from [TR38901] provide typical values for the delay spread.
+Model                        Delay Spread [ns]
+Very short delay spread      10
+Short short delay spread     10
+Nominal delay spread         100
+Long delay spread            300
+Very long delay spread       1000
+
+                                                Frequency [GHz]
+Delay spread [ns]                               2       6       15      28      39      60      70
+
+Indoor office           Short delay profile     20      16      16      16      16      16      16
+Indoor office           Normal delay profile    39      30      24      20      18      16      16
+Indoor office           Long delay profile      59      53      47      43      41      38      37
+UMi Street-canyon       Short delay profile     65      45      37      32      30      27      26
+UMi Street-canyon       Normal delay profile    129     93      76      66      61      55      53
+UMi Street-canyon       Long delay profile      634     316     307     301     297     293     291
+UMa                     Short delay profile     93      93      85      80      78      75      74
+UMa                     Normal delay profile    363     363     302     266     249     228     221
+UMa                     Long delay profile      1148    1148    955     841     786     720     698
+RMa / RMa O2I           Short delay profile     32      32      N/A     N/A     N/A     N/A     N/A
+RMa / RMa O2I           Normal delay profile    37      37      N/A     N/A     N/A     N/A     N/A
+RMa / RMa O2I           Long delay profile      153     153     N/A     N/A     N/A     N/A     N/A
+UMi / UMa O2I           Normal delay profile    242     242     242     242     242     242     242
+UMi / UMa O2I           Long delay profile      616     616     616     616     616     616     616
+Parameters
+model (str) – CDL model to use. Must be one of “A”, “B”, “C”, “D” or “E”.
+delay_spread (float) – RMS delay spread [s].
+carrier_frequency (float) – Carrier frequency [Hz].
+ut_array (PanelArray) – Panel array used by the UTs. All UTs share the same antenna array configuration.
+bs_array (PanelArray) – Panel array used by the Bs. All BSs share the same antenna array configuration.
+direction (str) – Link direction. Must be either “uplink” or “downlink”.
+ut_orientation (None or Tensor of shape [3], tf.float) – Orientation of the UT. If set to None, [
+\pi
+, 0, 0] is used. Defaults to None.
+bs_orientation (None or Tensor of shape [3], tf.float) – Orientation of the BS. If set to None, [0, 0, 0] is used. Defaults to None.
+min_speed (float) – Minimum speed [m/s]. Defaults to 0.
+max_speed (None or float) – Maximum speed [m/s]. If set to None, then max_speed takes the same value as min_speed. Defaults to None.
+dtype (Complex tf.DType) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+Input
+batch_size (int) – Batch size
+num_time_steps (int) – Number of time steps
+sampling_frequency (float) – Sampling frequency [Hz]
+Output
+a ([batch size, num_rx = 1, num_rx_ant, num_tx = 1, num_tx_ant, num_paths, num_time_steps], tf.complex) – Path coefficients
+tau ([batch size, num_rx = 1, num_tx = 1, num_paths], tf.float) – Path delays [s]
+property
+delay_spread
+RMS delay spread [s]
+property
+delays
+Path delays [s]
+property
+k_factor
+K-factor in linear scale. Only available with LoS models.
+property
+los
+True is this is a LoS model. False otherwise.
+property
+num_clusters
+Number of paths (
+M
+)
+property
+powers
+Path powers in linear scale

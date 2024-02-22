@@ -1,0 +1,68 @@
+INSTRUCTION: Explain how to use the SincFilter class in Sionna to apply a sinc filter to an input signal.
+ANSWER:To apply a sinc filter to an input signal using the Sionna `SincFilter` class, follow these steps:
+
+1. **Import the required module:**
+   Make sure to import Sionna and TensorFlow as you will need them to create the sinc filter and process the signal.
+
+   ```python
+   import tensorflow as tf
+   import sionna
+   from sionna.signal import SincFilter
+   ```
+
+2. **Create an instance of the SincFilter class:**
+   Initialize the filter with the desired parameters. You need to specify the span of the filter in symbols (`span_in_symbols`), the oversampling factor (`samples_per_symbol`), and optionally a window function (`window`), among other parameters.
+
+   ```python
+   span_in_symbols = 10          # Example value for filter span in symbols
+   samples_per_symbol = 4        # Example value for oversampling factor
+   sinc_filter = SincFilter(span_in_symbols, samples_per_symbol, window='hann')
+   ```
+
+3. **Prepare your input signal:**
+   The input signal `x` should be a TensorFlow tensor with the last dimension being the length of the signal `N`.
+
+   ```python
+   # Example signal (replace with your actual signal)
+   N = 1000                      # Length of the signal
+   x = tf.random.normal([N])     # Creating a random signal as an example
+   ```
+
+4. **Filter the input signal:**
+   Apply the sinc filter to the input signal by calling the SincFilter instance with the signal `x` as an argument. Choose the appropriate padding method as needed (`full`, `valid`, or `same`).
+
+   ```python
+   padding = 'same'              # Example padding mode
+   y = sinc_filter(x, padding=padding)
+   ```
+
+   The filtered output `y` is now a tensor containing the filtered version of the input signal `x`. The length of `y` will depend on the padding you chose: `full` will give you `N + K - 1`, `same` gives `N`, and `valid` gives `N - K + 1`, where `K` is the filter length.
+
+These steps will apply the sinc filter to your input signal. You can then use the filtered signal `y` for further processing or analysis within your application.
+
+INSTRUCTION: Demonstrate creating a RaisedCosineFilter in Sionna with a specified span in symbols, samples per symbol, beta, and an optional window.
+ANSWER:Creating a RaisedCosineFilter in Sionna involves instantiating a `RaisedCosineFilter` object with specified parameters for the span in symbols, samples per symbol, roll-off factor (`beta`), and an optional window function. Below is an example demonstrating how to create a RaisedCosineFilter with the given specifications:
+
+```python
+import sionna
+from sionna.signal import RaisedCosineFilter
+
+# Define the RaisedCosineFilter parameters
+span_in_symbols = 5   # Filter span in symbols
+samples_per_symbol = 4 # Number of samples per symbol, i.e., the oversampling factor
+beta = 0.25            # Roll-off factor
+window = "hann"        # Optional window (can be None, "hann", "hamming", "blackman" or other supported window types)
+
+# Create a RaisedCosineFilter with the given specifications
+rcf = RaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window=window, normalize=True, trainable=False, dtype=tf.float32)
+
+# If no window is needed, you can create the filter without the window parameter
+# rcf = RaisedCosineFilter(span_in_symbols, samples_per_symbol, beta)
+
+# The `rcf` object can now be used to filter signals
+```
+
+In this example, the `RaisedCosineFilter` class is used from the Sionna library to create a filter with a specified `span_in_symbols`, `samples_per_symbol`, `beta`, and `window`. The `normalize` parameter is set to `True` to normalize the filter to have unit power, and `trainable` is set to `False` indicating that the filter coefficients are not trainable variables.
+
+Remember to select an appropriate window if required. If you don't want to use a window function, you can omit the `window=window` argument when creating the `RaisedCosineFilter` object or set it to `None`.
+

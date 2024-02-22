@@ -1,0 +1,478 @@
+# Wireless
+
+## 3GPP 38.901 channel models
+### class: sionna.channel.tr38901.UMi(carrier_frequency, o2i_model, ut_array, bs_array, direction, enable_pathloss=True, enable_shadow_fading=True, always_generate_lsp=False, dtype=tf.complex64)
+### class: sionna.channel.tr38901.UMa(carrier_frequency, o2i_model, ut_array, bs_array, direction, enable_pathloss=True, enable_shadow_fading=True, always_generate_lsp=False, dtype=tf.complex64)
+### class: sionna.channel.tr38901.RMa(carrier_frequency, ut_array, bs_array, direction, enable_pathloss=True, enable_shadow_fading=True, always_generate_lsp=False, dtype=tf.complex64)
+## External datasets
+
+# Wireless
+
+This module provides layers and functions that implement wireless channel models. Models currently available include AWGN, flat-fading with (optional) SpatialCorrelation, RayleighBlockFading, as well as models from the 3rd Generation Partnership Project (3GPP) [TR38901]: TDL, CDL, UMi, UMa, and RMa. It is also possible to use externally generated CIRs.
+
+Apart from flat-fading, all of these models generate channel impulse responses (CIRs) that can then be used to implement a channel transfer function in the time domain or assuming an OFDM waveform.
+
+This is achieved using the different functions, classes, and Keras layers which operate as shown in the figures below.
+
+Fig. 7 Channel module architecture for time domain simulations.
+
+Fig. 8 Channel module architecture for simulations assuming OFDM waveform.
+
+A channel model generate CIRs from which channel responses in the time domain or in the frequency domain are computed using the cir_to_time_channel() or cir_to_ofdm_channel() functions, respectively. If one does not need access to the raw CIRs, the GenerateTimeChannel and GenerateOFDMChannel classes can be used to conveniently sample CIRs and generate channel responses in the desired domain.
+
+Once the channel responses in the time or frequency domain are computed, they can be applied to the channel input using the ApplyTimeChannel or ApplyOFDMChannel Keras layers.
+
+The following code snippets show how to setup and run a Rayleigh block fading model assuming an OFDM waveform, and without accessing the CIRs or channel responses. This is the easiest way to setup a channel model. Setting-up other models is done in a similar way, except for AWGN (see the AWGN class documentation).
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+channel  = OFDMChannel(channel_model = rayleigh,
+
+                       resource_grid = rg)
+
+where rg is an instance of ResourceGrid.
+
+Running the channel model is done as follows:
+
+# x is the channel input
+
+# no is the noise variance
+
+y = channel([x, no])
+
+To use the time domain representation of the channel, one can use TimeChannel instead of OFDMChannel.
+
+If access to the channel responses is needed, one can separate their generation from their application to the channel input by setting up the channel model as follows:
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+generate_channel = GenerateOFDMChannel(channel_model = rayleigh,
+
+                                       resource_grid = rg)
+
+
+
+apply_channel = ApplyOFDMChannel()
+
+where rg is an instance of ResourceGrid. Running the channel model is done as follows:
+
+# Generate a batch of channel responses
+
+h = generate_channel(batch_size)
+
+# Apply the channel
+
+# x is the channel input
+
+# no is the noise variance
+
+y = apply_channel([x, h, no])
+
+Generating and applying the channel in the time domain can be achieved by using GenerateTimeChannel and ApplyTimeChannel instead of GenerateOFDMChannel and ApplyOFDMChannel, respectively.
+
+To access the CIRs, setting up the channel can be done as follows:
+
+rayleigh = RayleighBlockFading(num_rx = 1,
+
+                               num_rx_ant = 32,
+
+                               num_tx = 4,
+
+                               num_tx_ant = 2)
+
+
+
+apply_channel = ApplyOFDMChannel()
+
+and running the channel model as follows:
+
+cir = rayleigh(batch_size)
+
+h = cir_to_ofdm_channel(frequencies, *cir)
+
+y = apply_channel([x, h, no])
+
+where frequencies are the subcarrier frequencies in the baseband, which can be computed using the subcarrier_frequencies() utility function.
+
+Applying the channel in the time domain can be done by using cir_to_time_channel() and ApplyTimeChannel instead of cir_to_ofdm_channel() and ApplyOFDMChannel, respectively.
+
+For the purpose of the present document, the following symbols apply:
+
+N_T (u)
+
+Number of transmitters (transmitter index)
+
+N_T (u)
+
+Number of receivers (receiver index)
+
+N_{TA} (k)
+
+Number of antennas per transmitter (transmit antenna index)
+
+N_{RA} (l)
+
+Number of antennas per receiver (receive antenna index)
+
+N_S (s)
+
+Number of OFDM symbols (OFDM symbol index)
+
+N_F (n)
+
+Number of subcarriers (subcarrier index)
+
+N_B (b)
+
+Number of time samples forming the channel input (baseband symbol index)
+
+L_{\text{min}}
+
+Smallest time-lag for the discrete complex baseband channel
+
+L_{\text{max}}
+
+Largest time-lag for the discrete complex baseband channel
+
+M (m)
+
+Number of paths (clusters) forming a power delay profile (path index)
+
+\tau_m(t)
+
+m^{th}
+
+path (cluster) delay at time step
+
+t
+
+a_m(t)
+
+m^{th}
+
+path (cluster) complex coefficient at time step
+
+\Delta_f
+
+Subcarrier spacing
+
+W
+
+Bandwidth
+
+N_0
+
+Noise variance
+
+All transmitters are equipped with
+
+N_{TA}
+
+antennas and all receivers with
+
+N_{RA}
+
+antennas.
+
+A channel model, such as RayleighBlockFading or UMi, is used to generate for each link between antenna
+
+k
+
+of transmitter
+
+u
+
+and antenna
+
+l
+
+of receiver
+
+v
+
+a power delay profile
+
+(a_{u, k, v, l, m}(t), \tau_{u, v, m}), 0 \leq m \leq M-1
+
+. The delays are assumed not to depend on time
+
+t
+
+, and transmit and receive antennas
+
+k
+
+and
+
+l
+
+. Such a power delay profile corresponds to the channel impulse response
+
+h_{u, k, v, l}(t,\tau) =
+
+\sum_{m=0}^{M-1} a_{u, k, v, l,m}(t) \delta(\tau - \tau_{u, v, m})
+
+where
+
+\delta(\cdot)
+
+is the Dirac delta measure. For example, in the case of Rayleigh block fading, the power delay profiles are time-invariant and such that for every link
+
+(u, k, v, l)
+
+\begin{split}\begin{align}
+
+   M                     &= 1\\
+
+   \tau_{u, v, 0}  &= 0\\
+
+   a_{u, k, v, l, 0}     &\sim \mathcal{CN}(0,1).
+
+\end{align}\end{split}
+
+.
+
+3GPP channel models use the procedure depicted in [TR38901] to generate power delay profiles. With these models, the power delay profiles are time-variant in the event of mobility.
+
+### class: sionna.channel.tr38901.UMi(carrier_frequency, o2i_model, ut_array, bs_array, direction, enable_pathloss=True, enable_shadow_fading=True, always_generate_lsp=False, dtype=tf.complex64)
+Urban microcell (UMi) channel model from 3GPP [TR38901] specification.
+Setting up a UMi model requires configuring the network topology, i.e., the UTs and BSs locations, UTs velocities, etc. This is achieved using the set_topology() method. Setting a different topology for each batch example is possible. The batch size used when setting up the network topology is used for the link simulations.
+The following code snippet shows how to setup a UMi channel model operating in the frequency domain:
+>>> # UT and BS panel arrays
+>>> bs_array = PanelArray(num_rows_per_panel = 4,
+...                       num_cols_per_panel = 4,
+...                       polarization = 'dual',
+...                       polarization_type  = 'cross',
+...                       antenna_pattern = '38.901',
+...                       carrier_frequency = 3.5e9)
+>>> ut_array = PanelArray(num_rows_per_panel = 1,
+...                       num_cols_per_panel = 1,
+...                       polarization = 'single',
+...                       polarization_type = 'V',
+...                       antenna_pattern = 'omni',
+...                       carrier_frequency = 3.5e9)
+>>> # Instantiating UMi channel model
+>>> channel_model = UMi(carrier_frequency = 3.5e9,
+...                     o2i_model = 'low',
+...                     ut_array = ut_array,
+...                     bs_array = bs_array,
+...                     direction = 'uplink')
+>>> # Setting up network topology
+>>> # ut_loc: UTs locations
+>>> # bs_loc: BSs locations
+>>> # ut_orientations: UTs array orientations
+>>> # bs_orientations: BSs array orientations
+>>> # in_state: Indoor/outdoor states of UTs
+>>> channel_model.set_topology(ut_loc,
+...                            bs_loc,
+...                            ut_orientations,
+...                            bs_orientations,
+...                            ut_velocities,
+...                            in_state)
+>>> # Instanting the frequency domain channel
+>>> channel = OFDMChannel(channel_model = channel_model,
+...                       resource_grid = rg)
+where rg is an instance of ResourceGrid.
+Parameters
+carrier_frequency (float) – Carrier frequency in Hertz
+o2i_model (str) – Outdoor-to-indoor loss model for UTs located indoor. Set this parameter to “low” to use the low-loss model, or to “high” to use the high-loss model. See section 7.4.3 of [TR38901] for details.
+rx_array (PanelArray) – Panel array used by the receivers. All receivers share the same antenna array configuration.
+tx_array (PanelArray) – Panel array used by the transmitters. All transmitters share the same antenna array configuration.
+direction (str) – Link direction. Either “uplink” or “downlink”.
+enable_pathloss (bool) – If True, apply pathloss. Otherwise doesn’t. Defaults to True.
+enable_shadow_fading (bool) – If True, apply shadow fading. Otherwise doesn’t. Defaults to True.
+always_generate_lsp (bool) – If True, new large scale parameters (LSPs) are generated for every new generation of channel impulse responses. Otherwise, always reuse the same LSPs, except if the topology is changed. Defaults to False.
+dtype (Complex tf.DType) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+Input
+num_time_steps (int) – Number of time steps
+sampling_frequency (float) – Sampling frequency [Hz]
+Output
+a ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths, num_time_steps], tf.complex) – Path coefficients
+tau ([batch size, num_rx, num_tx, num_paths], tf.float) – Path delays [s]
+set_topology(ut_loc=None, bs_loc=None, ut_orientations=None, bs_orientations=None, ut_velocities=None, in_state=None, los=None)
+Set the network topology.
+It is possible to set up a different network topology for each batch example. The batch size used when setting up the network topology is used for the link simulations.
+When calling this function, not specifying a parameter leads to the reuse of the previously given value. Not specifying a value that was not set at a former call rises an error.
+Input
+ut_loc ([batch size,num_ut, 3], tf.float) – Locations of the UTs
+bs_loc ([batch size,num_bs, 3], tf.float) – Locations of BSs
+ut_orientations ([batch size,num_ut, 3], tf.float) – Orientations of the UTs arrays [radian]
+bs_orientations ([batch size,num_bs, 3], tf.float) – Orientations of the BSs arrays [radian]
+ut_velocities ([batch size,num_ut, 3], tf.float) – Velocity vectors of UTs
+in_state ([batch size,num_ut], tf.bool) – Indoor/outdoor state of UTs. True means indoor and False means outdoor.
+los (tf.bool or None) – If not None (default value), all UTs located outdoor are forced to be in LoS if los is set to True, or in NLoS if it is set to False. If set to None, the LoS/NLoS states of UTs is set following 3GPP specification [TR38901].
+Note
+If you want to use this function in Graph mode with XLA, i.e., within a function that is decorated with @tf.function(jit_compile=True), you must set sionna.Config.xla_compat=true. See xla_compat.
+show_topology(bs_index=0, batch_index=0)
+Shows the network topology of the batch example with index batch_index.
+The bs_index parameter specifies with respect to which BS the LoS/NLoS state of UTs is indicated.
+Input
+bs_index (int) – BS index with respect to which the LoS/NLoS state of UTs is indicated. Defaults to 0.
+batch_index (int) – Batch example for which the topology is shown. Defaults to 0.
+### class: sionna.channel.tr38901.UMa(carrier_frequency, o2i_model, ut_array, bs_array, direction, enable_pathloss=True, enable_shadow_fading=True, always_generate_lsp=False, dtype=tf.complex64)
+Urban macrocell (UMa) channel model from 3GPP [TR38901] specification.
+Setting up a UMa model requires configuring the network topology, i.e., the UTs and BSs locations, UTs velocities, etc. This is achieved using the set_topology() method. Setting a different topology for each batch example is possible. The batch size used when setting up the network topology is used for the link simulations.
+The following code snippet shows how to setup an UMa channel model assuming an OFDM waveform:
+>>> # UT and BS panel arrays
+>>> bs_array = PanelArray(num_rows_per_panel = 4,
+...                       num_cols_per_panel = 4,
+...                       polarization = 'dual',
+...                       polarization_type = 'cross',
+...                       antenna_pattern = '38.901',
+...                       carrier_frequency = 3.5e9)
+>>> ut_array = PanelArray(num_rows_per_panel = 1,
+...                       num_cols_per_panel = 1,
+...                       polarization = 'single',
+...                       polarization_type = 'V',
+...                       antenna_pattern = 'omni',
+...                       carrier_frequency = 3.5e9)
+>>> # Instantiating UMa channel model
+>>> channel_model = UMa(carrier_frequency = 3.5e9,
+...                     o2i_model = 'low',
+...                     ut_array = ut_array,
+...                     bs_array = bs_array,
+...                     direction = 'uplink')
+>>> # Setting up network topology
+>>> # ut_loc: UTs locations
+>>> # bs_loc: BSs locations
+>>> # ut_orientations: UTs array orientations
+>>> # bs_orientations: BSs array orientations
+>>> # in_state: Indoor/outdoor states of UTs
+>>> channel_model.set_topology(ut_loc,
+...                            bs_loc,
+...                            ut_orientations,
+...                            bs_orientations,
+...                            ut_velocities,
+...                            in_state)
+>>> # Instanting the OFDM channel
+>>> channel = OFDMChannel(channel_model = channel_model,
+...                       resource_grid = rg)
+where rg is an instance of ResourceGrid.
+Parameters
+carrier_frequency (float) – Carrier frequency in Hertz
+o2i_model (str) – Outdoor-to-indoor loss model for UTs located indoor. Set this parameter to “low” to use the low-loss model, or to “high” to use the high-loss model. See section 7.4.3 of [TR38901] for details.
+rx_array (PanelArray) – Panel array used by the receivers. All receivers share the same antenna array configuration.
+tx_array (PanelArray) – Panel array used by the transmitters. All transmitters share the same antenna array configuration.
+direction (str) – Link direction. Either “uplink” or “downlink”.
+enable_pathloss (bool) – If True, apply pathloss. Otherwise doesn’t. Defaults to True.
+enable_shadow_fading (bool) – If True, apply shadow fading. Otherwise doesn’t. Defaults to True.
+always_generate_lsp (bool) – If True, new large scale parameters (LSPs) are generated for every new generation of channel impulse responses. Otherwise, always reuse the same LSPs, except if the topology is changed. Defaults to False.
+dtype (Complex tf.DType) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+Input
+num_time_steps (int) – Number of time steps
+sampling_frequency (float) – Sampling frequency [Hz]
+Output
+a ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths, num_time_steps], tf.complex) – Path coefficients
+tau ([batch size, num_rx, num_tx, num_paths], tf.float) – Path delays [s]
+set_topology(ut_loc=None, bs_loc=None, ut_orientations=None, bs_orientations=None, ut_velocities=None, in_state=None, los=None)
+Set the network topology.
+It is possible to set up a different network topology for each batch example. The batch size used when setting up the network topology is used for the link simulations.
+When calling this function, not specifying a parameter leads to the reuse of the previously given value. Not specifying a value that was not set at a former call rises an error.
+Input
+ut_loc ([batch size,num_ut, 3], tf.float) – Locations of the UTs
+bs_loc ([batch size,num_bs, 3], tf.float) – Locations of BSs
+ut_orientations ([batch size,num_ut, 3], tf.float) – Orientations of the UTs arrays [radian]
+bs_orientations ([batch size,num_bs, 3], tf.float) – Orientations of the BSs arrays [radian]
+ut_velocities ([batch size,num_ut, 3], tf.float) – Velocity vectors of UTs
+in_state ([batch size,num_ut], tf.bool) – Indoor/outdoor state of UTs. True means indoor and False means outdoor.
+los (tf.bool or None) – If not None (default value), all UTs located outdoor are forced to be in LoS if los is set to True, or in NLoS if it is set to False. If set to None, the LoS/NLoS states of UTs is set following 3GPP specification [TR38901].
+Note
+If you want to use this function in Graph mode with XLA, i.e., within a function that is decorated with @tf.function(jit_compile=True), you must set sionna.Config.xla_compat=true. See xla_compat.
+show_topology(bs_index=0, batch_index=0)
+Shows the network topology of the batch example with index batch_index.
+The bs_index parameter specifies with respect to which BS the LoS/NLoS state of UTs is indicated.
+Input
+bs_index (int) – BS index with respect to which the LoS/NLoS state of UTs is indicated. Defaults to 0.
+batch_index (int) – Batch example for which the topology is shown. Defaults to 0.
+### class: sionna.channel.tr38901.RMa(carrier_frequency, ut_array, bs_array, direction, enable_pathloss=True, enable_shadow_fading=True, always_generate_lsp=False, dtype=tf.complex64)
+Rural macrocell (RMa) channel model from 3GPP [TR38901] specification.
+Setting up a RMa model requires configuring the network topology, i.e., the UTs and BSs locations, UTs velocities, etc. This is achieved using the set_topology() method. Setting a different topology for each batch example is possible. The batch size used when setting up the network topology is used for the link simulations.
+The following code snippet shows how to setup an RMa channel model assuming an OFDM waveform:
+>>> # UT and BS panel arrays
+>>> bs_array = PanelArray(num_rows_per_panel = 4,
+...                       num_cols_per_panel = 4,
+...                       polarization = 'dual',
+...                       polarization_type = 'cross',
+...                       antenna_pattern = '38.901',
+...                       carrier_frequency = 3.5e9)
+>>> ut_array = PanelArray(num_rows_per_panel = 1,
+...                       num_cols_per_panel = 1,
+...                       polarization = 'single',
+...                       polarization_type = 'V',
+...                       antenna_pattern = 'omni',
+...                       carrier_frequency = 3.5e9)
+>>> # Instantiating RMa channel model
+>>> channel_model = RMa(carrier_frequency = 3.5e9,
+...                     ut_array = ut_array,
+...                     bs_array = bs_array,
+...                     direction = 'uplink')
+>>> # Setting up network topology
+>>> # ut_loc: UTs locations
+>>> # bs_loc: BSs locations
+>>> # ut_orientations: UTs array orientations
+>>> # bs_orientations: BSs array orientations
+>>> # in_state: Indoor/outdoor states of UTs
+>>> channel_model.set_topology(ut_loc,
+...                            bs_loc,
+...                            ut_orientations,
+...                            bs_orientations,
+...                            ut_velocities,
+...                            in_state)
+>>> # Instanting the OFDM channel
+>>> channel = OFDMChannel(channel_model = channel_model,
+...                       resource_grid = rg)
+where rg is an instance of ResourceGrid.
+Parameters
+carrier_frequency (float) – Carrier frequency [Hz]
+rx_array (PanelArray) – Panel array used by the receivers. All receivers share the same antenna array configuration.
+tx_array (PanelArray) – Panel array used by the transmitters. All transmitters share the same antenna array configuration.
+direction (str) – Link direction. Either “uplink” or “downlink”.
+enable_pathloss (bool) – If True, apply pathloss. Otherwise doesn’t. Defaults to True.
+enable_shadow_fading (bool) – If True, apply shadow fading. Otherwise doesn’t. Defaults to True.
+average_street_width (float) – Average street width [m]. Defaults to 5m.
+average_street_width – Average building height [m]. Defaults to 20m.
+always_generate_lsp (bool) – If True, new large scale parameters (LSPs) are generated for every new generation of channel impulse responses. Otherwise, always reuse the same LSPs, except if the topology is changed. Defaults to False.
+dtype (Complex tf.DType) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+Input
+num_time_steps (int) – Number of time steps
+sampling_frequency (float) – Sampling frequency [Hz]
+Output
+a ([batch size, num_rx, num_rx_ant, num_tx, num_tx_ant, num_paths, num_time_steps], tf.complex) – Path coefficients
+tau ([batch size, num_rx, num_tx, num_paths], tf.float) – Path delays [s]
+set_topology(ut_loc=None, bs_loc=None, ut_orientations=None, bs_orientations=None, ut_velocities=None, in_state=None, los=None)
+Set the network topology.
+It is possible to set up a different network topology for each batch example. The batch size used when setting up the network topology is used for the link simulations.
+When calling this function, not specifying a parameter leads to the reuse of the previously given value. Not specifying a value that was not set at a former call rises an error.
+Input
+ut_loc ([batch size,num_ut, 3], tf.float) – Locations of the UTs
+bs_loc ([batch size,num_bs, 3], tf.float) – Locations of BSs
+ut_orientations ([batch size,num_ut, 3], tf.float) – Orientations of the UTs arrays [radian]
+bs_orientations ([batch size,num_bs, 3], tf.float) – Orientations of the BSs arrays [radian]
+ut_velocities ([batch size,num_ut, 3], tf.float) – Velocity vectors of UTs
+in_state ([batch size,num_ut], tf.bool) – Indoor/outdoor state of UTs. True means indoor and False means outdoor.
+los (tf.bool or None) – If not None (default value), all UTs located outdoor are forced to be in LoS if los is set to True, or in NLoS if it is set to False. If set to None, the LoS/NLoS states of UTs is set following 3GPP specification [TR38901].
+Note
+If you want to use this function in Graph mode with XLA, i.e., within a function that is decorated with @tf.function(jit_compile=True), you must set sionna.Config.xla_compat=true. See xla_compat.
+show_topology(bs_index=0, batch_index=0)
+Shows the network topology of the batch example with index batch_index.
+The bs_index parameter specifies with respect to which BS the LoS/NLoS state of UTs is indicated.
+Input
+bs_index (int) – BS index with respect to which the LoS/NLoS state of UTs is indicated. Defaults to 0.
+batch_index (int) – Batch example for which the topology is shown. Defaults to 0.
+## External datasets

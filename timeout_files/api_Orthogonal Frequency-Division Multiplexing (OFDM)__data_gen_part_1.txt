@@ -1,0 +1,362 @@
+# Orthogonal Frequency-Division Multiplexing (OFDM)
+
+## Resource Grid
+### class: sionna.ofdm.ResourceGrid(num_ofdm_symbols, fft_size, subcarrier_spacing, num_tx=1, num_streams_per_tx=1, cyclic_prefix_length=0, num_guard_carriers=(0, 0), dc_null=False, pilot_pattern=None, pilot_ofdm_symbol_indices=None, dtype=tf.complex64)
+### class: sionna.ofdm.ResourceGridMapper(resource_grid, dtype=tf.complex64, **kwargs)
+### class: sionna.ofdm.ResourceGridDemapper(resource_grid, stream_management, dtype=tf.complex64, **kwargs)
+### class: sionna.ofdm.RemoveNulledSubcarriers(resource_grid, **kwargs)
+## Modulation & Demodulation
+### class: sionna.ofdm.OFDMModulator(cyclic_prefix_length, **kwargs)
+### class: sionna.ofdm.OFDMDemodulator(fft_size, l_min, cyclic_prefix_length, **kwargs)
+## Pilot Pattern
+### class: sionna.ofdm.PilotPattern(mask, pilots, trainable=False, normalize=False, dtype=tf.complex64)
+### class: sionna.ofdm.EmptyPilotPattern(num_tx, num_streams_per_tx, num_ofdm_symbols, num_effective_subcarriers, dtype=tf.complex64)
+### class: sionna.ofdm.KroneckerPilotPattern(resource_grid, pilot_ofdm_symbol_indices, normalize=True, seed=0, dtype=tf.complex64)
+## Channel Estimation
+### class: sionna.ofdm.BaseChannelEstimator(resource_grid, interpolation_type='nn', interpolator=None, dtype=tf.complex64, **kwargs)
+
+# Orthogonal Frequency-Division Multiplexing (OFDM)
+
+This module provides layers and functions to support simulation of OFDM-based systems. The key component is the ResourceGrid that defines how data and pilot symbols are mapped onto a sequence of OFDM symbols with a given FFT size. The resource grid can also define guard and DC carriers which are nulled. In 4G/5G parlance, a ResourceGrid would be a slot. Once a ResourceGrid is defined, one can use the ResourceGridMapper to map a tensor of complex-valued data symbols onto the resource grid, prior to OFDM modulation using the OFDMModulator or further processing in the frequency domain.
+
+The PilotPattern allows for a fine-grained configuration of how transmitters send pilots for each of their streams or antennas. As the management of pilots in multi-cell MIMO setups can quickly become complicated, the module provides the KroneckerPilotPattern class that automatically generates orthogonal pilot transmissions for all transmitters and streams.
+
+Additionally, the module contains layers for channel estimation, precoding, equalization, and detection, such as the LSChannelEstimator, the ZFPrecoder, and the LMMSEEqualizer and LinearDetector. These are good starting points for the development of more advanced algorithms and provide robust baselines for benchmarking.
+
+## Resource Grid
+The following code snippet shows how to setup and visualize an instance of ResourceGrid:
+rg = ResourceGrid(num_ofdm_symbols = 14,
+                  fft_size = 64,
+                  subcarrier_spacing = 30e3,
+                  num_tx = 1,
+                  num_streams_per_tx = 1,
+                  num_guard_carriers = [5, 6],
+                  dc_null = True,
+                  pilot_pattern = "kronecker",
+                  pilot_ofdm_symbol_indices = [2, 11])
+rg.show();
+This code creates a resource grid consisting of 14 OFDM symbols with 64 subcarriers. The first five and last six subcarriers as well as the DC subcarriers are nulled. The second and eleventh OFDM symbol are reserved for pilot transmissions.
+Subcarriers are numbered from
+0
+to
+N-1
+, where
+N
+is the FTT size. The index
+0
+corresponds to the lowest frequency, which is
+-\frac{N}{2}\Delta_f
+(for
+N
+even) or
+-\frac{N-1}{2}\Delta_f
+(for
+N
+odd), where
+\Delta_f
+is the subcarrier spacing which is irrelevant for the resource grid. The index
+N-1
+corresponds to the highest frequency, which is
+(\frac{N}{2}-1)\Delta_f
+(for
+N
+even) or
+\frac{N-1}{2}\Delta_f
+(for
+N
+odd).
+### class: sionna.ofdm.ResourceGrid(num_ofdm_symbols, fft_size, subcarrier_spacing, num_tx=1, num_streams_per_tx=1, cyclic_prefix_length=0, num_guard_carriers=(0, 0), dc_null=False, pilot_pattern=None, pilot_ofdm_symbol_indices=None, dtype=tf.complex64)
+Defines a ResourceGrid spanning multiple OFDM symbols and subcarriers.
+Parameters
+num_ofdm_symbols (int) – Number of OFDM symbols.
+fft_size (int) – FFT size (, i.e., the number of subcarriers).
+subcarrier_spacing (float) – The subcarrier spacing in Hz.
+num_tx (int) – Number of transmitters.
+num_streams_per_tx (int) – Number of streams per transmitter.
+cyclic_prefix_length (int) – Length of the cyclic prefix.
+num_guard_carriers (int) – List of two integers defining the number of guardcarriers at the left and right side of the resource grid.
+dc_null (bool) – Indicates if the DC carrier is nulled or not.
+pilot_pattern (One of [None, "kronecker", "empty", PilotPattern]) – An instance of PilotPattern, a string shorthand for the KroneckerPilotPattern or EmptyPilotPattern, or None. Defaults to None which is equivalent to “empty”.
+pilot_ofdm_symbol_indices (List, int) – List of indices of OFDM symbols reserved for pilot transmissions. Only needed if pilot_pattern="kronecker". Defaults to None.
+dtype (tf.Dtype) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+property
+bandwidth
+fft_size*subcarrier_spacing.
+Type
+The occupied bandwidth [Hz]
+build_type_grid()[source]
+Returns a tensor indicating the type of each resource element.
+Resource elements can be one of
+0 : Data symbol
+1 : Pilot symbol
+2 : Guard carrier symbol
+3 : DC carrier symbol
+Output
+[num_tx, num_streams_per_tx, num_ofdm_symbols, fft_size], tf.int32 – Tensor indicating for each transmitter and stream the type of the resource elements of the corresponding resource grid. The type can be one of [0,1,2,3] as explained above.
+property
+cyclic_prefix_length
+Length of the cyclic prefix.
+property
+dc_ind
+Index of the DC subcarrier.
+If fft_size is odd, the index is (fft_size-1)/2. If fft_size is even, the index is fft_size/2.
+property
+dc_null
+Indicates if the DC carriers is nulled or not.
+property
+effective_subcarrier_ind
+Returns the indices of the effective subcarriers.
+property
+fft_size
+The FFT size.
+property
+num_data_symbols
+Number of resource elements used for data transmissions.
+property
+num_effective_subcarriers
+Number of subcarriers used for data and pilot transmissions.
+property
+num_guard_carriers
+Number of left and right guard carriers.
+property
+num_ofdm_symbols
+The number of OFDM symbols of the resource grid.
+property
+num_pilot_symbols
+Number of resource elements used for pilot symbols.
+property
+num_resource_elements
+Number of resource elements.
+property
+num_streams_per_tx
+Number of streams per transmitter.
+property
+num_time_samples
+The number of time-domain samples occupied by the resource grid.
+property
+num_tx
+Number of transmitters.
+property
+num_zero_symbols
+Number of empty resource elements.
+property
+ofdm_symbol_duration
+Duration of an OFDM symbol with cyclic prefix [s].
+property
+pilot_pattern
+The used PilotPattern.
+show(tx_ind=0, tx_stream_ind=0)[source]
+Visualizes the resource grid for a specific transmitter and stream.
+Input
+tx_ind (int) – Indicates the transmitter index.
+tx_stream_ind (int) – Indicates the index of the stream.
+Output
+matplotlib.figure – A handle to a matplot figure object.
+property
+subcarrier_spacing
+The subcarrier spacing [Hz].
+### class: sionna.ofdm.ResourceGridMapper(resource_grid, dtype=tf.complex64, **kwargs)
+Maps a tensor of modulated data symbols to a ResourceGrid.
+This layer takes as input a tensor of modulated data symbols and maps them together with pilot symbols onto an OFDM ResourceGrid. The output can be converted to a time-domain signal with the Modulator or further processed in the frequency domain.
+Parameters
+resource_grid (ResourceGrid) – An instance of ResourceGrid.
+dtype (tf.Dtype) – Datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+Input
+[batch_size, num_tx, num_streams_per_tx, num_data_symbols], tf.complex – The modulated data symbols to be mapped onto the resource grid.
+Output
+[batch_size, num_tx, num_streams_per_tx, num_ofdm_symbols, fft_size], tf.complex – The full OFDM resource grid in the frequency domain.
+### class: sionna.ofdm.ResourceGridDemapper(resource_grid, stream_management, dtype=tf.complex64, **kwargs)
+Extracts data-carrying resource elements from a resource grid.
+This layer takes as input an OFDM ResourceGrid and extracts the data-carrying resource elements. In other words, it implements the reverse operation of ResourceGridMapper.
+Parameters
+resource_grid (ResourceGrid) – An instance of ResourceGrid.
+stream_management (StreamManagement) – An instance of StreamManagement.
+dtype (tf.Dtype) – Datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+Input
+[batch_size, num_rx, num_streams_per_rx, num_ofdm_symbols, fft_size, data_dim] – The full OFDM resource grid in the frequency domain. The last dimension data_dim is optional. If data_dim is used, it refers to the dimensionality of the data that should be demapped to individual streams. An example would be LLRs.
+Output
+[batch_size, num_rx, num_streams_per_rx, num_data_symbols, data_dim] – The data that were mapped into the resource grid. The last dimension data_dim is only returned if it was used for the input.
+### class: sionna.ofdm.RemoveNulledSubcarriers(resource_grid, **kwargs)
+Removes nulled guard and/or DC subcarriers from a resource grid.
+Parameters
+resource_grid (ResourceGrid) – An instance of ResourceGrid.
+Input
+[batch_size, num_tx, num_streams_per_tx, num_ofdm_symbols, fft_size], tf.complex64 – Full resource grid.
+Output
+[batch_size, num_tx, num_streams_per_tx, num_ofdm_symbols, num_effective_subcarriers], tf.complex64 – Resource grid without nulled subcarriers.
+## Modulation & Demodulation
+### class: sionna.ofdm.OFDMModulator(cyclic_prefix_length, **kwargs)
+Computes the time-domain representation of an OFDM resource grid with (optional) cyclic prefix.
+Parameters
+cyclic_prefix_length (int) – Integer indicating the length of the cyclic prefix that it prepended to each OFDM symbol. It cannot be longer than the FFT size.
+Input
+[…,num_ofdm_symbols,fft_size], tf.complex – A resource grid in the frequency domain.
+Output
+[…,num_ofdm_symbols*(fft_size+cyclic_prefix_length)], tf.complex – Time-domain OFDM signal.
+### class: sionna.ofdm.OFDMDemodulator(fft_size, l_min, cyclic_prefix_length, **kwargs)
+Computes the frequency-domain representation of an OFDM waveform with cyclic prefix removal.
+The demodulator assumes that the input sequence is generated by the TimeChannel. For a single pair of antennas, the received signal sequence is given as:
+y_b = \sum_{\ell =L_\text{min}}^{L_\text{max}} \bar{h}_\ell x_{b-\ell} + w_b, \quad b \in[L_\text{min}, N_B+L_\text{max}-1]
+where
+\bar{h}_\ell
+are the discrete-time channel taps,
+x_{b}
+is the the transmitted signal, and
+w_\ell
+Gaussian noise.
+Starting from the first symbol, the demodulator cuts the input sequence into pieces of size cyclic_prefix_length + fft_size, and throws away any trailing symbols. For each piece, the cyclic prefix is removed and the fft_size-point discrete Fourier transform is computed.
+Since the input sequence starts at time
+L_\text{min}
+, the FFT-window has a timing offset of
+L_\text{min}
+symbols, which leads to a subcarrier-dependent phase shift of
+e^{\frac{j2\pi k L_\text{min}}{N}}
+, where
+k
+is the subcarrier index,
+N
+is the FFT size, and
+L_\text{min} \le 0
+is the largest negative time lag of the discrete-time channel impulse response. This phase shift is removed in this layer, by explicitly multiplying each subcarrier by
+e^{\frac{-j2\pi k L_\text{min}}{N}}
+. This is a very important step to enable channel estimation with sparse pilot patterns that needs to interpolate the channel frequency response accross subcarriers. It also ensures that the channel frequency response seen by the time-domain channel is close to the OFDMChannel.
+Parameters
+fft_size (int) – FFT size (, i.e., the number of subcarriers).
+l_min (int) – The largest negative time lag of the discrete-time channel impulse response. It should be the same value as that used by the cir_to_time_channel function.
+cyclic_prefix_length (int) – Integer indicating the length of the cyclic prefix that is prepended to each OFDM symbol.
+Input
+[…,num_ofdm_symbols*(fft_size+cyclic_prefix_length)+n], tf.complex – Tensor containing the time-domain signal along the last dimension. n is a nonnegative integer.
+Output
+[…,num_ofdm_symbols,fft_size], tf.complex – Tensor containing the OFDM resource grid along the last two dimension.
+## Pilot Pattern
+A PilotPattern defines how transmitters send pilot sequences for each of their antennas or streams over an OFDM resource grid. It consists of two components, a mask and pilots. The mask indicates which resource elements are reserved for pilot transmissions by each transmitter and its respective streams. In some cases, the number of streams is equal to the number of transmit antennas, but this does not need to be the case, e.g., for precoded transmissions. The pilots contains the pilot symbols that are transmitted at the positions indicated by the mask. Separating a pilot pattern into mask and pilots enables the implementation of a wide range of pilot configurations, including trainable pilot sequences.
+The following code snippet shows how to define a simple custom PilotPattern for single transmitter, sending two streams Note that num_effective_subcarriers is the number of subcarriers that can be used for data or pilot transmissions. Due to guard carriers or a nulled DC carrier, this number can be smaller than the fft_size of the ResourceGrid.
+num_tx = 1
+num_streams_per_tx = 2
+num_ofdm_symbols = 14
+num_effective_subcarriers = 12
+
+# Create a pilot mask
+mask = np.zeros([num_tx,
+                 num_streams_per_tx,
+                 num_ofdm_symbols,
+                 num_effective_subcarriers])
+mask[0, :, [2,11], :] = 1
+num_pilot_symbols = int(np.sum(mask[0,0]))
+
+# Define pilot sequences
+pilots = np.zeros([num_tx,
+                   num_streams_per_tx,
+                   num_pilot_symbols], np.complex64)
+pilots[0, 0, 0:num_pilot_symbols:2] = (1+1j)/np.sqrt(2)
+pilots[0, 1, 1:num_pilot_symbols:2] = (1+1j)/np.sqrt(2)
+
+# Create a PilotPattern instance
+pp = PilotPattern(mask, pilots)
+
+# Visualize non-zero elements of the pilot sequence
+pp.show(show_pilot_ind=True);
+As shown in the figures above, the pilots are mapped onto the mask from the smallest effective subcarrier and OFDM symbol index to the highest effective subcarrier and OFDM symbol index. Here, boths stream have 24 pilot symbols, out of which only 12 are nonzero. It is important to keep this order of mapping in mind when designing more complex pilot sequences.
+### class: sionna.ofdm.PilotPattern(mask, pilots, trainable=False, normalize=False, dtype=tf.complex64)
+Class defining a pilot pattern for an OFDM ResourceGrid.
+This class defines a pilot pattern object that is used to configure an OFDM ResourceGrid.
+Parameters
+mask ([num_tx, num_streams_per_tx, num_ofdm_symbols, num_effective_subcarriers], bool) – Tensor indicating resource elements that are reserved for pilot transmissions.
+pilots ([num_tx, num_streams_per_tx, num_pilots], tf.complex) – The pilot symbols to be mapped onto the mask.
+trainable (bool) – Indicates if pilots is a trainable Variable. Defaults to False.
+normalize (bool) – Indicates if the pilots should be normalized to an average energy of one across the last dimension. This can be useful to ensure that trainable pilots have a finite energy. Defaults to False.
+dtype (tf.Dtype) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+property
+mask
+Mask of the pilot pattern
+property
+normalize
+Returns or sets the flag indicating if the pilots are normalized or not
+property
+num_data_symbols
+Number of data symbols per transmit stream.
+property
+num_effective_subcarriers
+Number of effectvie subcarriers
+property
+num_ofdm_symbols
+Number of OFDM symbols
+property
+num_pilot_symbols
+Number of pilot symbols per transmit stream.
+property
+num_streams_per_tx
+Number of streams per transmitter
+property
+num_tx
+Number of transmitters
+property
+pilots
+Returns or sets the possibly normalized tensor of pilot symbols. If pilots are normalized, the normalization will be applied after new values for pilots have been set. If this is not the desired behavior, turn normalization off.
+show(tx_ind=None, stream_ind=None, show_pilot_ind=False)[source]
+Visualizes the pilot patterns for some transmitters and streams.
+Input
+tx_ind (list, int) – Indicates the indices of transmitters to be included. Defaults to None, i.e., all transmitters included.
+stream_ind (list, int) – Indicates the indices of streams to be included. Defaults to None, i.e., all streams included.
+show_pilot_ind (bool) – Indicates if the indices of the pilot symbols should be shown.
+Output
+list (matplotlib.figure.Figure) – List of matplot figure objects showing each the pilot pattern from a specific transmitter and stream.
+property
+trainable
+Returns if pilots are trainable or not
+### class: sionna.ofdm.EmptyPilotPattern(num_tx, num_streams_per_tx, num_ofdm_symbols, num_effective_subcarriers, dtype=tf.complex64)
+Creates an empty pilot pattern.
+Generates a instance of PilotPattern with an empty mask and pilots.
+Parameters
+num_tx (int) – Number of transmitters.
+num_streams_per_tx (int) – Number of streams per transmitter.
+num_ofdm_symbols (int) – Number of OFDM symbols.
+num_effective_subcarriers (int) – Number of effective subcarriers that are available for the transmission of data and pilots. Note that this number is generally smaller than the fft_size due to nulled subcarriers.
+dtype (tf.Dtype) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+### class: sionna.ofdm.KroneckerPilotPattern(resource_grid, pilot_ofdm_symbol_indices, normalize=True, seed=0, dtype=tf.complex64)
+Simple orthogonal pilot pattern with Kronecker structure.
+This function generates an instance of PilotPattern that allocates non-overlapping pilot sequences for all transmitters and streams on specified OFDM symbols. As the same pilot sequences are reused across those OFDM symbols, the resulting pilot pattern has a frequency-time Kronecker structure. This structure enables a very efficient implementation of the LMMSE channel estimator. Each pilot sequence is constructed from randomly drawn QPSK constellation points.
+Parameters
+resource_grid (ResourceGrid) – An instance of a ResourceGrid.
+pilot_ofdm_symbol_indices (list, int) – List of integers defining the OFDM symbol indices that are reserved for pilots.
+normalize (bool) – Indicates if the pilots should be normalized to an average energy of one across the last dimension. Defaults to True.
+seed (int) – Seed for the generation of the pilot sequence. Different seed values lead to different sequences. Defaults to 0.
+dtype (tf.Dtype) – Defines the datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+Note
+It is required that the resource_grid’s property num_effective_subcarriers is an integer multiple of num_tx * num_streams_per_tx. This condition is required to ensure that all transmitters and streams get non-overlapping pilot sequences. For a large number of streams and/or transmitters, the pilot pattern becomes very sparse in the frequency domain.
+Examples
+>>> rg = ResourceGrid(num_ofdm_symbols=14,
+...                   fft_size=64,
+...                   subcarrier_spacing = 30e3,
+...                   num_tx=4,
+...                   num_streams_per_tx=2,
+...                   pilot_pattern = "kronecker",
+...                   pilot_ofdm_symbol_indices = [2, 11])
+>>> rg.pilot_pattern.show();
+## Channel Estimation
+### class: sionna.ofdm.BaseChannelEstimator(resource_grid, interpolation_type='nn', interpolator=None, dtype=tf.complex64, **kwargs)
+Abstract layer for implementing an OFDM channel estimator.
+Any layer that implements an OFDM channel estimator must implement this class and its estimate_at_pilot_locations() abstract method.
+This class extracts the pilots from the received resource grid y, calls the estimate_at_pilot_locations() method to estimate the channel for the pilot-carrying resource elements, and then interpolates the channel to compute channel estimates for the data-carrying resouce elements using the interpolation method specified by interpolation_type or the interpolator object.
+Parameters
+resource_grid (ResourceGrid) – An instance of ResourceGrid.
+interpolation_type (One of ["nn", "lin", "lin_time_avg"], string) – The interpolation method to be used. It is ignored if interpolator is not None. Available options are NearestNeighborInterpolator (“nn”) or LinearInterpolator without (“lin”) or with averaging across OFDM symbols (“lin_time_avg”). Defaults to “nn”.
+interpolator (BaseChannelInterpolator) – An instance of BaseChannelInterpolator, such as LMMSEInterpolator, or None. In the latter case, the interpolator specfied by interpolation_type is used. Otherwise, the interpolator is used and interpolation_type is ignored. Defaults to None.
+dtype (tf.Dtype) – Datatype for internal calculations and the output dtype. Defaults to tf.complex64.
+Input
+(y, no) – Tuple:
+y ([batch_size, num_rx, num_rx_ant, num_ofdm_symbols,fft_size], tf.complex) – Observed resource grid
+no ([batch_size, num_rx, num_rx_ant] or only the first n>=0 dims, tf.float) – Variance of the AWGN
+Output
+h_hat ([batch_size, num_rx, num_rx_ant, num_tx, num_streams_per_tx, num_ofdm_symbols,fft_size], tf.complex) – Channel estimates accross the entire resource grid for all transmitters and streams
+err_var (Same shape as h_hat, tf.float) – Channel estimation error variance accross the entire resource grid for all transmitters and streams
+abstract
+estimate_at_pilot_locations(y_pilots, no)[source]
+Estimates the channel for the pilot-carrying resource elements.
+This is an abstract method that must be implemented by a concrete OFDM channel estimator that implement this class.
+Input
+y_pilots ([batch_size, num_rx, num_rx_ant, num_tx, num_streams, num_pilot_symbols], tf.complex) – Observed signals for the pilot-carrying resource elements
+no ([batch_size, num_rx, num_rx_ant] or only the first n>=0 dims, tf.float) – Variance of the AWGN
+Output
+h_hat ([batch_size, num_rx, num_rx_ant, num_tx, num_streams, num_pilot_symbols], tf.complex) – Channel estimates for the pilot-carrying resource elements
+err_var (Same shape as h_hat, tf.float) – Channel estimation error variance for the pilot-carrying resource elements
