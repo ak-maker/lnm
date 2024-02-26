@@ -10,7 +10,7 @@ def count_instructions_in_file(file_path):
         return len(instructions)
 
 # Path to the directory containing files
-directory_path = 'success_files'
+directory_path = '../../success_files'
 
 # Iterate over each file in the directory and count the instructions
 total_instructions = 0

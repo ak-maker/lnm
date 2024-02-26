@@ -22,7 +22,7 @@ def gen(ctx_fn, to_fn=""):
     print("Processing complete.")
 
 # start_time = time.time()
-# gen("./sionna/quickstart_installation", "IA_quickstart_installation")
-gen("context.txt", "transit_file")
+# # gen("./sionna/quickstart_installation", "IA_quickstart_installation")
+# gen("context.txt", "transit_file")
 # end_time = time.time()
 # print(end_time-start_time)

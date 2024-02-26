@@ -1,0 +1,32 @@
+INSTRUCTION: Write a Python function using the Sionna package to define a PUSCH configuration with default settings and instantiate a PUSCHTransmitter based on that configuration.
+ANSWER:Based on the given context, you can use the following Python function to define a PUSCH configuration with default settings and instantiate a `PUSCHTransmitter` based on that configuration using the Sionna package.
+
+```python
+import tensorflow as tf
+import sionna
+from sionna.nr import PUSCHConfig, PUSCHTransmitter
+
+# Function to define default PUSCH configuration and instantiate a PUSCHTransmitter
+def create_default_pusch_transmitter():
+    # Create a PUSCH configuration with default settings
+    pusch_config = PUSCHConfig()
+
+    # Instantiate a PUSCHTransmitter from the PUSCHConfig
+    pusch_transmitter = PUSCHTransmitter(pusch_config)
+
+    return pusch_transmitter
+
+# Using the function to create a PUSCH transmitter
+pusch_transmitter = create_default_pusch_transmitter()
+```
+
+This function `create_default_pusch_transmitter` sets up a PUSCH configuration with the default parameters and then creates a `PUSCHTransmitter` object which can be used for simulations. Note that the function returns the created `PUSCHTransmitter` instance.
+
+Before running this code, ensure you have the Sionna package installed and properly configured in your Python environment. If it's not installed, you can install it via pip:
+
+```shell
+pip install sionna
+```
+
+Replace `pip` with `pip3` if you are using Python 3.x to ensure you install the package for the correct version of Python.
+

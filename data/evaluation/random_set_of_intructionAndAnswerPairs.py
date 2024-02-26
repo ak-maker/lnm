@@ -24,7 +24,7 @@ def random_instruction_answer_pairs(pairs, num_samples):
     return random.sample(pairs, num_samples)
 
 # Path to the directory containing files with instruction-answer pairs
-directory_path = './success_files'
+directory_path = '../../success_files'
 
 # Extract instruction-answer pairs from all files in the directory
 all_pairs = []

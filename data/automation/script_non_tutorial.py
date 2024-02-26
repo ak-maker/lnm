@@ -168,13 +168,13 @@ def main():
                 # Move the file to the timeout_files directory if a timeout occurs
                 print()
                 print(f"Timeout occurred for {small_piece_file}. Moving to timeout_files.")
-                os.rename(small_piece_file, os.path.join("timeout_files", read_content_name+"__"+small_piece_file))
+                os.rename(small_piece_file, os.path.join("../../timeout_files", read_content_name + "__" + small_piece_file))
                 continue  # Skip the rest of the loop and proceed with the next file
 
             print(f"Finished processing {small_piece_file}.")
             os.remove(small_piece_file)  # Remove the file after processing
         end = time.time()
-        writer = open('time.txt', 'a', encoding='utf-8')
+        writer = open('../../time.txt', 'a', encoding='utf-8')
         if timeout_files:
             writer.write("IA_"+read_content_name+": "+str(time_except_timeout)+" except "+(', '.join(timeout_files))+"\n")
         else:

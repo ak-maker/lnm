@@ -5,7 +5,7 @@ import litellm.timeout
 
 # Directory containing the files
 directory = "E:\python\lnm\\timeout_files"
-time_file_path = "E:\python\lnm\\time.txt"
+time_file_path = "/time.txt"
 
 while sum(1 for entry in os.listdir(directory) if os.path.isfile(os.path.join(directory, entry))) > 0:
     # List all files in the directory
@@ -24,7 +24,7 @@ while sum(1 for entry in os.listdir(directory) if os.path.isfile(os.path.join(di
                 with open("./sionna_try/IA_"+filename.split("__")[0], 'a',encoding='utf-8') as file1:
                     file1.write("\n"+content_to_append)
                 # change the time, add it
-                with open("./time.txt", 'r') as file:
+                with open("../../time.txt", 'r') as file:
                     lines_in_time = file.readlines()
                 found = False
                 for i, line in enumerate(lines_in_time):
@@ -37,7 +37,7 @@ while sum(1 for entry in os.listdir(directory) if os.path.isfile(os.path.join(di
                         line = line.replace(filename.split("__")[1], "")
                         break
                 if found:
-                    with open("./time.txt", 'w') as file:
+                    with open("../../time.txt", 'w') as file:
                         file.writelines(lines_in_time)
                     print("time.txt has been updated.")
                 else:
@@ -54,8 +54,8 @@ while sum(1 for entry in os.listdir(directory) if os.path.isfile(os.path.join(di
                 continue  # Skip the rest of the loop and proceed with the next file
     # Here to delete all the new generated file after a round
     print("Here to delete all the new generated file after a round")
-    for filename in os.listdir("./new"):
-        file_path = os.path.join("./new", filename)
+    for filename in os.listdir("../../new"):
+        file_path = os.path.join("../../new", filename)
         if os.path.isfile(file_path):
             print(f"Delete {file_path}")
             os.remove(file_path)

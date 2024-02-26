@@ -28,8 +28,10 @@ def extract_headings_from_toc(lines):
         if not toc:
             intro_content.append(line)
         else:
-            if pattern.sub('', line) in headings:
-                break
+            if True:
+                line = line.split('<')[0] + '\n'
+                if pattern.sub('', line) in headings:
+                    break
             if line.strip().startswith('#'):
                 headings.append(pattern.sub('', line.strip())+'\n')
     return headings, intro_content
@@ -40,9 +42,10 @@ def find_sections(lines, headings):
     sections = {}
     current_section = None
     for i, line in enumerate(lines):
-        if line.startswith('##'):
-            line = pattern.sub('', line)
-        if line in headings:  # Check for an exact match, including the # symbols
+        # if line.startswith('##'):
+        #     line = pattern.sub('', line)
+        if pattern.sub('',line.split("<")[0]+"\n") in headings:  # Check for an exact match, including the # symbols
+
             current_section = line
             sections[current_section] = []
         if current_section:
@@ -50,8 +53,9 @@ def find_sections(lines, headings):
     return sections
 
 
-def divide_content(sections, intro_content, max_lines=350):
-    required_section = sections.pop('## GPU Configuration and Imports\n', None)
+def divide_content(sections, intro_content, max_lines=300):
+    # required_section = sections.pop('## GPU Configuration and Imports\n', None)
+    required_section = sections.pop('## GPU Configuration and Imports<a class="headerlink" href="https://nvlabs.github.io/sionna/#GPU-Configuration-and-Imports" title="Permalink to this headline">\uf0c1</a>\n', None)
     divided_files_content = []
     current_file_content = []
     current_line_count = len(intro_content) if required_section else 0
@@ -107,8 +111,8 @@ def generate_captions_for_file(content, toc_headings):
 def main():
     time_except_timeout = 0
     timeout_files = []
-    whole_content_name = ["tutorials_for_experts_MIMO OFDM Transmissions over the CDL Channel Model", "tutorials_for_experts_Neural Receiver for OFDM SIMO Systems", "tutorials_for_experts_Realistic Multiuser MIMO OFDM Simulations","tutorials_for_experts_OFDM MIMO Channel Estimation and Detection","tutorials_for_experts_Introduction to Iterative Detection and Decoding","tutorials_for_experts_End-to-end Learning with Autoencoders","tutorials_for_experts_Weighted Belief Propagation Decoding","tutorials_for_experts_Channel Models from Datasets","tutorials_for_experts_Using the DeepMIMO Dataset with Sionna","tutorials_ray_tracing_Introduction to Sionna RT","tutorials_ray_tracing_Tutorial on Diffraction","tutorials_ray_tracing_Tutorial on Scattering"]
-
+    # whole_content_name = ["tutorials_for_experts_MIMO OFDM Transmissions over the CDL Channel Model", "tutorials_for_experts_Neural Receiver for OFDM SIMO Systems", "tutorials_for_experts_Realistic Multiuser MIMO OFDM Simulations","tutorials_for_experts_OFDM MIMO Channel Estimation and Detection","tutorials_for_experts_Introduction to Iterative Detection and Decoding","tutorials_for_experts_End-to-end Learning with Autoencoders","tutorials_for_experts_Weighted Belief Propagation Decoding","tutorials_for_experts_Channel Models from Datasets","tutorials_for_experts_Using the DeepMIMO Dataset with Sionna","tutorials_ray_tracing_Introduction to Sionna RT","tutorials_ray_tracing_Tutorial on Diffraction","tutorials_ray_tracing_Tutorial on Scattering"]
+    whole_content_name = ["tutorials_for_experts_OFDM MIMO Channel Estimation and Detection.md"]
     for read_content_name in whole_content_name:
         content = read_content("E:\python\lnm\sionna\\" + read_content_name)
         toc_headings, intro_content = extract_headings_from_toc(content)
@@ -116,7 +120,7 @@ def main():
         divided_contents, intro_content = divide_content(sections, intro_content)
 
         for i, (divided_content, _) in enumerate(divided_contents, start=1):
-            file_name = f'data_gen_part_{i}.txt'
+            file_name = f'data_gen_part_{i}.md'
             captions = generate_captions_for_file(divided_content, toc_headings)
             file_content = intro_content + captions + divided_content
             write_content(file_name, file_content)
@@ -134,7 +138,7 @@ def main():
     #     # timeout 记录下来到一个新的folder里里面全是timeout的内容，先执行别的file，最后再执行timeout再把内容加到源文件中
         for i in range(1, file_num + 1):
         # for i in range(3, 4):
-            small_piece_file = f"data_gen_part_{i}.txt"
+            small_piece_file = f"data_gen_part_{i}.md"
             print(f"Processing {small_piece_file}...")
 
             try:
@@ -148,13 +152,13 @@ def main():
                 # Move the file to the timeout_files directory if a timeout occurs
                 print()
                 print(f"Timeout occurred for {small_piece_file}. Moving to timeout_files.")
-                os.rename(small_piece_file, os.path.join("timeout_files", read_content_name+"__"+small_piece_file))
+                os.rename(small_piece_file, os.path.join("../../timeout_files", read_content_name + "__" + small_piece_file))
                 continue  # Skip the rest of the loop and proceed with the next file
 
             print(f"Finished processing {small_piece_file}.")
             os.remove(small_piece_file)  # Remove the file after processing
         end = time.time()
-        writer = open('time.txt', 'a', encoding='utf-8')
+        writer = open('../../time_md.txt', 'a', encoding='utf-8')
         if timeout_files:
             writer.write("IA_"+read_content_name+": "+str(time_except_timeout)+" except "+(', '.join(timeout_files))+"\n")
         else:
