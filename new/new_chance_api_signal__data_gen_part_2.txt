@@ -1,93 +1,124 @@
-INSTRUCTION: Define the steps to perform convolution on a baseband signal using the `sionna.signal.convolve` function.
-ANSWER:To perform convolution on a baseband signal using the `sionna.signal.convolve` function following the given context, follow the steps below:
+INSTRUCTION: Demonstrate how to create a Hann window using sionna.signal.HannWindow and apply it to a signal.
+ANSWER:To demonstrate creating a Hann window using `sionna.signal.HannWindow` in Python and applying it to a signal, follow these steps:
 
-1. **Import Required Modules**:
-   Start by importing TensorFlow - since Sionna appears to be a library based on TensorFlow - as well as the Sionna library components you will need for convolution.
+1. First, import the necessary module and create a signal that you want to window.
+2. Instantiate a `HannWindow` with the desired length.
+3. Apply the window to the signal by element-wise multiplying the window coefficients with the signal.
+4. (Optional) Plot the original and windowed signals to visualize the effect of the window.
 
-   ```python
-   import tensorflow as tf
-   import sionna
-   ```
-   
-2. **Define or Obtain Input Signal**:
-   Acquire the baseband signal `inp` that you want to convolve. This signal should be a TensorFlow tensor of dtype either `tf.complex` or `tf.float`.
+Here is a code example in Python using TensorFlow and Sionna library:
 
-   ```python
-   # Example baseband signal inp
-   inp = tf.constant([...], dtype=tf.complex64)  # Replace [...] with your signal values
-   ```
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+import sionna
 
-3. **Define or Obtain Convolution Kernel**:
-   Determine the convolution kernel `ker`. This kernel should also be a TensorFlow tensor of the same dtype as the input signal.
+# Assume Sionna and TensorFlow are already installed and imported
+# Import the HannWindow class from the sionna.signal module
+from sionna.signal import HannWindow
 
-   ```python
-   # Example convolution kernel ker
-   ker = tf.constant([...], dtype=tf.complex64)  # Replace [...] with your kernel values
-   ```
-   
-4. **Set Convolution Parameters**:
-   Decide on the padding mode you will use for the convolution. You can choose between 'full', 'valid', or 'same' (case insensitive).
+# Create a dummy signal
+signal_length = 1024
+frequency = 5
+sample_rate = 100
+t = np.linspace(0, signal_length / sample_rate, signal_length, endpoint=False)
+signal = np.sin(2 * np.pi * frequency * t)
 
-   ```python
-   # Example padding
-   padding = 'same'  # This is just an example; choose the padding mode that fits your needs
-   ```
+# Plot the original signal
+plt.figure()
+plt.plot(t, signal, label='Original Signal')
+plt.legend()
 
-5. **Perform Convolution**:
-   Use the `sionna.signal.convolve` function to convolve the input signal with the kernel. Ensure that the length of the kernel is not greater than the length of the input signal.
+# Create a Hann window of the same length as the signal
+window_length = signal_length
+hann_window = HannWindow(window_length)
 
-   ```python
-   out = sionna.signal.convolve(inp, ker, padding=padding)
-   ```
+# Apply the window to the signal
+# The signal needs to be cast into a TensorFlow tensor and expanded to match the dimensions expected by the HannWindow layer
+signal_tensor = tf.constant(signal, dtype=tf.float32)
+signal_tensor = tf.expand_dims(signal_tensor, axis=0)  # Expand dimensions to match the layer's requirements
 
-   Here, `out` is the convolved output tensor, which will be of type `tf.complex` if either `inp` or `ker` is complex, otherwise `tf.float`.
+# Apply the window by element-wise multiplication
+windowed_signal_tensor = hann_window(signal_tensor)
 
-6. **Process the Output**:
-   Once you have the convolved signal, you can further process `out` as required for your application, for example, by visualization, downsampling, or passing it through additional processing stages.
+# Convert the result back to a numpy array for plotting
+windowed_signal = windowed_signal_tensor.numpy().flatten()
 
-Remember to adapt these example steps to fit the actual signal and kernel you are working with, as well as your specific requirements regarding convolution padding and subsequent processing.
+# Plot the windowed signal
+plt.figure()
+plt.plot(t, windowed_signal, label='Windowed Signal')
+plt.legend()
+plt.show()
+```
 
-INSTRUCTION: Describe the process of upsample a signal using the `sionna.signal.Upsampling` layer, including how to choose the upsampling factor.
-ANSWER:Upsampling a signal involves increasing the number of samples in the signal without changing its original content. It is primarily used in digital signal processing to match a certain processing sample rate or to prepare a signal for digital-to-analog conversion.
+This example creates a simple sinusoidal signal and applies a Hann window to it. The `HannWindow` class is used to generate the window coefficients and apply them to the signal. The final result shows both the original and the windowed signals, where you can observe the effect of the Hann window, typically a smooth tapering off at both ends.
 
-To upsample a signal using the `sionna.signal.Upsampling` layer, one should follow these steps:
+INSTRUCTION: Explain the process of creating a filter with a Blackman window and normalizing it using sionna.signal.Filter.
+ANSWER:To create a filter using the Blackman window and normalize it using `sionna.signal.Filter`, follow these steps:
 
-1. **Determine the Upsampling Factor:** This factor, often denoted as `samples_per_symbol`, indicates how many samples will replace each original sample in the signal. For example, if `samples_per_symbol` were set to 4, it would increase the number of samples by a factor of 4. This means between each pair of original samples, 3 new zero-valued samples are inserted.
+1. **Determine the Filter Parameters**: Decide the filter's span in symbols (`span_in_symbols`) and the number of samples per symbol (`samples_per_symbol`). These parameters define the length of the filter, which is `span_in_symbols * samples_per_symbol`. If this product is even, a value of one will be added to make the length odd.
 
-   Choosing the correct upsampling factor depends on the desired sample rate post-upsampling or the Nyquist rate of the final system. The original signal's bandwidth and the desired final bandwidth also play a role in this decision.
+2. **Instantiate the Blackman Window**: Use `sionna.signal.BlackmanWindow` class with the desired length. You will have to set the `normalize` parameter to `True` if you want the Blackman window to have unit average power per coefficient, but note that in the `Filter` class, normalization happens after windowing, so normalizing the Blackman window is not strictly necessary.
 
-2. **Instantiate the Upsampling Layer:** You'll need to create an instance of the `sionna.signal.Upsampling` class by providing the `samples_per_symbol` as an argument.
+3. **Create the Filter with the Blackman Window**: Instantiate a `Filter` object by passing the span in symbols, samples per symbol, and the instantiated Blackman window into the constructor. Set the `normalize` parameter to `True` to automatically normalize the filter coefficients to have unit power.
 
-    ```python
-    us = sionna.signal.Upsampling(samples_per_symbol)
-    ```
+Here's a code example to demonstrate these steps:
 
-3. **Apply the Upsampling Layer to the Signal:** By calling the instantiated upsampling layer with the signal as an argument, the signal will be upsampled along the axis specified by the `axis` argument (default is `-1`, which typically corresponds to the time axis).
+```python
+import tensorflow as tf
+import sionna
 
-    ```python
-    x_us = us(x)
-    ```
-    
-    In this code snippet, `x` is the original signal that will be upsampled to obtain `x_us`.
+# Step 1: Determine the filter parameters
+span_in_symbols = 32  # Set the filter span in symbols
+samples_per_symbol = 4  # Set the oversampling factor
 
-4. **[Optional] Filtering**: After upsampling, the new samples are zero, which means now you have a signal with a lot of sharp transitions. You often follow-upsampling with a filter (e.g., interpolation filter) to smooth out these transitions and to shape the spectrum of the signal to desired characteristics.
-   
-   In the given context, following code snippet demonstrates how upsampling is used together with filtering:
+# Step 2: Instantiate the Blackman window
+blackman_window = sionna.signal.BlackmanWindow(span_in_symbols * samples_per_symbol, normalize=False)
 
-    ```python
-    # Create instance of the Upsampling layer
-    us = Upsampling(samples_per_symbol)
+# Step 3: Create and normalize the filter with the Blackman window
+blackman_filter = sionna.signal.Filter(span_in_symbols,
+                                       samples_per_symbol,
+                                       window=blackman_window,
+                                       normalize=True)  # Ensure the filter coefficients are normalized to have unit power.
 
-    # Upsample the baseband signal x
-    x_us = us(x)
+# Now the blackman_filter object can be used to filter input signals.
+```
 
-    # Filter the upsampled sequence to shape its spectrum
-    rrcf_hann = RootRaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window="hann")
-    x_rrcf = rrcf_hann(x_us)
-    ```
+Make sure you have `sionna` installed and properly set up in your working environment to run the above code. The provided code uses TensorFlow, upon which Sionna is built, for generating and processing signals with the defined filter.
 
-In the above code, `RootRaisedCosineFilter` is likely to be a representation of the Root Raised Cosine Filter, which is commonly used in digital communication systems to limit intersymbol interference. `beta` is the roll-off factor for this filter, which affects the bandwidth of the filter. The Hann window is applied to the filter coefficients to smooth out the frequency response.
+INSTRUCTION: Show how to perform upsampling on a given signal using sionna.signal.Upsampling.
+ANSWER:To perform upsampling on a given signal using the `sionna.signal.Upsampling` class, follow these steps:
 
-Keep in mind to use the upsampled signal appropriately. For example, in communication systems, upsampling is typically followed by pulse shaping before transmission. Similarly, upsampling may be a preparation step before digital-to-analog conversion, necessitating proper consideration of the analog filter characteristics that follow.
+1. First, import the necessary module from the Sionna library and any other required libraries, such as TensorFlow.
 
+2. Create an instance of the `sionna.signal.Upsampling` class by passing the desired upsampling factor `samples_per_symbol` and specifying the axis along which to upsample.
+
+3. Call this instance with the signal you want to upsample.
+
+Here is Python code that demonstrates these steps:
+
+```python
+import tensorflow as tf
+import sionna
+
+# Given signal (Example signal for illustration purposes)
+# Assume 'x' is your signal tensor of shape [..., N] where N is the number of samples
+x = tf.random.uniform(shape=[128, 1000])  # Example signal with batch size 128 and 1000 samples
+
+# Upsampling parameters
+samples_per_symbol = 4  # Upsampling factor (number of samples per symbol after upsampling)
+
+# Create an instance of the Upsampling class
+us = sionna.signal.Upsampling(samples_per_symbol)
+
+# Perform upsampling on the signal 'x'
+x_us = us(x)
+
+# The signal 'x_us' is now the upsampled signal
+```
+
+Please replace the example signal `x` with your own signal you want to upsample.
+
+After performing these steps, `x_us` will be the upsampled version of the original signal `x`, with each sample followed by `samples_per_symbol - 1` zeros along the specified axis.
 

@@ -1,68 +1,103 @@
-INSTRUCTION: Explain how to use the SincFilter class in Sionna to apply a sinc filter to an input signal.
-ANSWER:To apply a sinc filter to an input signal using the Sionna `SincFilter` class, follow these steps:
+INSTRUCTION: Explain how to create and apply a SincFilter using Sionna to a batch of QPSK baseband symbols.
+ANSWER:To create and apply a SincFilter using Sionna to a batch of QPSK baseband symbols, you would follow these steps:
 
-1. **Import the required module:**
-   Make sure to import Sionna and TensorFlow as you will need them to create the sinc filter and process the signal.
-
-   ```python
-   import tensorflow as tf
-   import sionna
-   from sionna.signal import SincFilter
-   ```
-
-2. **Create an instance of the SincFilter class:**
-   Initialize the filter with the desired parameters. You need to specify the span of the filter in symbols (`span_in_symbols`), the oversampling factor (`samples_per_symbol`), and optionally a window function (`window`), among other parameters.
-
-   ```python
-   span_in_symbols = 10          # Example value for filter span in symbols
-   samples_per_symbol = 4        # Example value for oversampling factor
-   sinc_filter = SincFilter(span_in_symbols, samples_per_symbol, window='hann')
-   ```
-
-3. **Prepare your input signal:**
-   The input signal `x` should be a TensorFlow tensor with the last dimension being the length of the signal `N`.
-
-   ```python
-   # Example signal (replace with your actual signal)
-   N = 1000                      # Length of the signal
-   x = tf.random.normal([N])     # Creating a random signal as an example
-   ```
-
-4. **Filter the input signal:**
-   Apply the sinc filter to the input signal by calling the SincFilter instance with the signal `x` as an argument. Choose the appropriate padding method as needed (`full`, `valid`, or `same`).
-
-   ```python
-   padding = 'same'              # Example padding mode
-   y = sinc_filter(x, padding=padding)
-   ```
-
-   The filtered output `y` is now a tensor containing the filtered version of the input signal `x`. The length of `y` will depend on the padding you chose: `full` will give you `N + K - 1`, `same` gives `N`, and `valid` gives `N - K + 1`, where `K` is the filter length.
-
-These steps will apply the sinc filter to your input signal. You can then use the filtered signal `y` for further processing or analysis within your application.
-
-INSTRUCTION: Demonstrate creating a RaisedCosineFilter in Sionna with a specified span in symbols, samples per symbol, beta, and an optional window.
-ANSWER:Creating a RaisedCosineFilter in Sionna involves instantiating a `RaisedCosineFilter` object with specified parameters for the span in symbols, samples per symbol, roll-off factor (`beta`), and an optional window function. Below is an example demonstrating how to create a RaisedCosineFilter with the given specifications:
+1. **Create a batch of QPSK baseband symbols:**
+   To generate a sequence of QPSK symbols, you would typically use a QPSK source. Here, it is assumed that you already have generated the baseband symbols and stored them in a variable (perhaps in a similar way as with `QAMSource` for QAM symbols in the given context). Let's say the variable name is `qpsk_symbols`.
 
 ```python
-import sionna
-from sionna.signal import RaisedCosineFilter
-
-# Define the RaisedCosineFilter parameters
-span_in_symbols = 5   # Filter span in symbols
-samples_per_symbol = 4 # Number of samples per symbol, i.e., the oversampling factor
-beta = 0.25            # Roll-off factor
-window = "hann"        # Optional window (can be None, "hann", "hamming", "blackman" or other supported window types)
-
-# Create a RaisedCosineFilter with the given specifications
-rcf = RaisedCosineFilter(span_in_symbols, samples_per_symbol, beta, window=window, normalize=True, trainable=False, dtype=tf.float32)
-
-# If no window is needed, you can create the filter without the window parameter
-# rcf = RaisedCosineFilter(span_in_symbols, samples_per_symbol, beta)
-
-# The `rcf` object can now be used to filter signals
+# Assuming qpsk_symbols is a Tensor with shape [batch_size, num_symbols]
 ```
 
-In this example, the `RaisedCosineFilter` class is used from the Sionna library to create a filter with a specified `span_in_symbols`, `samples_per_symbol`, `beta`, and `window`. The `normalize` parameter is set to `True` to normalize the filter to have unit power, and `trainable` is set to `False` indicating that the filter coefficients are not trainable variables.
+2. **Define parameters for your sinc filter:**
+   Decide the parameters for the sinc filter, including the span in symbols, samples per symbol, and an optional window function.
 
-Remember to select an appropriate window if required. If you don't want to use a window function, you can omit the `window=window` argument when creating the `RaisedCosineFilter` object or set it to `None`.
+```python
+span_in_symbols = 10  # As an example, you can choose an appropriate value
+samples_per_symbol = 4  # This could be different, aligned with the oversampling in your system
+```
+
+3. **Create the SincFilter:**
+   Instantiating the sinc filter with the chosen parameters. If you need a window function, select from the available options ("hann", "hamming", "blackman"), or set it to `None` if no window is desired.
+
+```python
+# No windowing is used here; for windowing, replace None with "hann", "hamming", or "blackman".
+sinc_filter = sionna.signal.SincFilter(span_in_symbols, samples_per_symbol, window=None, normalize=True)
+```
+
+4. **Upsample the QPSK symbols:**
+   Before filtering, you must upsample the baseband symbols, as sinc (ideal low-pass) filtering is typically done at a higher sampling rate. Use the Upsampling layer for this:
+
+```python
+# Create instance of the Upsampling layer
+us = sionna.signal.Upsampling(samples_per_symbol)
+
+# Upsample the baseband symbols
+qpsk_symbols_upsampled = us(qpsk_symbols)
+```
+
+5. **Filter the upsampled symbols:**
+   Once the symbols are upsampled, apply the sinc filter to the signals.
+
+```python
+# Filter the upsampled sequence with the sinc filter
+qpsk_symbols_filtered = sinc_filter(qpsk_symbols_upsampled)
+```
+
+6. **Downsample the filtered symbols (if needed):**
+   After filtering, if you want to return to the original sampling rate, you need to downsample the signals.
+
+```python
+# Instantiate a downsampling layer
+ds = sionna.signal.Downsampling(samples_per_symbol, sinc_filter.length-1, num_symbols)
+
+# Downsample the filtered signals
+qpsk_symbols_downsampled = ds(qpsk_symbols_filtered)
+```
+
+Please note that the snippets provided in the context, including QAMSource, are meant to serve as a guideline for generating baseband symbols and filtering them. For QPSK, you would replace the QAM-specific portions with appropriate QPSK symbol generation code.
+
+This is a simplified example to illustrate the steps for creating and applying a SincFilter to a batch of QPSK symbols using Sionna. Depending on the specific use case and signal processing requirements, additional steps or modifications might be required.
+
+INSTRUCTION: Describe how to initialize a RaisedCosineFilter with a given span, samples per symbol, beta, and apply it to a random signal.
+ANSWER:To initialize a `RaisedCosineFilter` with a given span, samples per symbol, beta, and apply it to a random signal, you can follow these steps:
+
+```python
+import tensorflow as tf
+import numpy as np
+from sionna.signal import RaisedCosineFilter, Upsampling
+
+# Given parameters
+span_in_symbols = 10  # Example span of the filter in symbols
+samples_per_symbol = 4  # Example number of samples per symbol (oversampling rate)
+beta = 0.25  # Example roll-off factor
+
+# Initialize the RaisedCosineFilter with the given parameters.
+rc_filter = RaisedCosineFilter(span_in_symbols, samples_per_symbol, beta)
+
+# Generate a random signal to apply the filter to.
+# For example, creating a batch of random sequences with a specific size.
+batch_size = 1          # Example batch size (single sequence in this case)
+num_symbols = 100       # Example number of symbols in the sequence
+
+# Generate random complex-valued samples.
+# The values should be normally distributed to represent a typical random signal.
+random_signal = tf.complex(np.random.normal(size=(batch_size, num_symbols)),
+                           np.random.normal(size=(batch_size, num_symbols)))
+
+# Upsample the random signal if necessary using the Upsampling layer.
+# This is required if the 'samples_per_symbol' parameter is greater than 1.
+upsampler = Upsampling(samples_per_symbol)
+random_signal_upsampled = upsampler(random_signal)
+
+# Apply the RaisedCosineFilter to the upsampled random signal.
+filtered_signal = rc_filter(random_signal_upsampled)
+
+# The 'filtered_signal' now contains the random signal after being shaped by the Raised Cosine filter.
+```
+
+Make sure to replace the example values of `span_in_symbols`, `samples_per_symbol`, `beta`, `batch_size`, and `num_symbols` with the actual values you need for your application.
+
+The `random_signal` is a placeholder for any input signal you would like to filter. In practical systems, the input would be a stream of symbols rather than random noise.
+
+Note: The `Upsampling` layer is used here as it is often customary to upsample the signal before applying a pulse shaping filter to avoid aliasing. The shaping filter is then applied in the higher sample rate domain, and if needed, the signal would be downsampled later on in the processing chain.
 
