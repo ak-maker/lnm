@@ -70,9 +70,6 @@
 #     for url, name in infoList:
 #         print(url, name)
 #         getMD(url, name)
-# -*- coding:utf-8 -*-
-# @Author: pioneer
-# @Environment: Python 3.9
 import datetime
 import os
 
