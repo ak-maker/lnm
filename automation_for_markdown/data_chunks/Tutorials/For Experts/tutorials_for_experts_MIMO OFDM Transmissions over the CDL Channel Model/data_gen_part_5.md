@@ -1,0 +1,330 @@
+# MIMO OFDM Transmissions over the CDL Channel Model<a class="headerlink" href="https://nvlabs.github.io/sionna/examples/MIMO_OFDM_Transmissions_over_CDL.html#MIMO-OFDM-Transmissions-over-the-CDL-Channel-Model" title="Permalink to this headline"></a>
+    
+In this notebook, you will learn how to setup a realistic simulation of a MIMO point-to-point link between a mobile user terminal (UT) and a base station (BS). Both, uplink and downlink directions are considered. Here is a schematic diagram of the system model with all required components:
+    
+    
+The setup includes:
+ 
+- 5G LDPC FEC
+- QAM modulation
+- OFDM resource grid with configurabel pilot pattern
+- Multiple data streams
+- 3GPP 38.901 CDL channel models and antenna patterns
+- ZF Precoding with perfect channel state information
+- LS Channel estimation with nearest-neighbor interpolation as well as perfect CSI
+- LMMSE MIMO equalization
+
+    
+You will learn how to simulate the channel in the time and frequency domains and understand when to use which option.
+    
+In particular, you will investigate:
+ 
+- The performance over different CDL models
+- The impact of imperfect CSI
+- Channel aging due to mobility
+- Inter-symbol interference due to insufficient cyclic prefix length
+
+    
+We will first walk through the configuration of all components of the system model, before simulating some simple transmissions in the time and frequency domain. Then, we will build a general Keras model which will allow us to run efficiently simulations with different parameter settings.
+    
+This is a notebook demonstrating a fairly advanced use of the Sionna library. It is recommended that you familiarize yourself with the API documentation of the <a class="reference external" href="https://nvlabs.github.io/sionna/api/channel.html">Channel</a> module and understand the difference between time- and frequency-domain modeling. Some of the simulations take some time, especially when you have no GPU available. For this reason, we provide the simulation results within the cells generating the figures. If you want to
+visualize your own results, just comment the corresponding line.
+
+# Table of Content
+## Simulations
+### Compare Uplink Performance Over the Different CDL Models
+### Compare Downlink Performance Over the Different CDL Models
+  
+  
+
+### GPU Configuration and Imports<a class="headerlink" href="https://nvlabs.github.io/sionna/examples/MIMO_OFDM_Transmissions_over_CDL.html#GPU-Configuration-and-Imports" title="Permalink to this headline"></a>
+
+```python
+[1]:
+```
+
+```python
+import os
+gpu_num = 0 # Use "" to use the CPU
+os.environ["CUDA_VISIBLE_DEVICES"] = f"{gpu_num}"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# Import Sionna
+try:
+    import sionna
+except ImportError as e:
+    # Install Sionna if package is not already installed
+    import os
+    os.system("pip install sionna")
+    import sionna
+# Configure the notebook to use only a single GPU and allocate only as much memory as needed
+# For more details, see https://www.tensorflow.org/guide/gpu
+import tensorflow as tf
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        tf.config.experimental.set_memory_growth(gpus[0], True)
+    except RuntimeError as e:
+        print(e)
+tf.get_logger().setLevel('ERROR')
+```
+```python
+[2]:
+```
+
+```python
+%matplotlib inline
+import matplotlib.pyplot as plt
+import numpy as np
+import pickle
+import time
+from sionna.mimo import StreamManagement
+from sionna.ofdm import ResourceGrid, ResourceGridMapper, LSChannelEstimator, LMMSEEqualizer
+from sionna.ofdm import OFDMModulator, OFDMDemodulator, ZFPrecoder, RemoveNulledSubcarriers
+from sionna.channel.tr38901 import AntennaArray, CDL, Antenna
+from sionna.channel import subcarrier_frequencies, cir_to_ofdm_channel, cir_to_time_channel, time_lag_discrete_time_channel
+from sionna.channel import ApplyOFDMChannel, ApplyTimeChannel, OFDMChannel, TimeChannel
+from sionna.fec.ldpc.encoding import LDPC5GEncoder
+from sionna.fec.ldpc.decoding import LDPC5GDecoder
+from sionna.mapping import Mapper, Demapper
+from sionna.utils import BinarySource, ebnodb2no, sim_ber
+from sionna.utils.metrics import compute_ber
+```
+
+### Compare Uplink Performance Over the Different CDL Models<a class="headerlink" href="https://nvlabs.github.io/sionna/examples/MIMO_OFDM_Transmissions_over_CDL.html#Compare-Uplink-Performance-Over-the-Different-CDL-Models" title="Permalink to this headline"></a>
+    
+We will now compare the uplink performance over the various CDL models assuming perfect CSI at the receiver. Note that these simulations might take some time depending or you available hardware. You can reduce the `batch_size` if the model does not fit into the memory of your GPU. The code will also run on CPU if not GPU is available.
+    
+If you do not want to run the simulation your self, you skip the next cell and visualize the result in the next cell.
+
+```python
+[31]:
+```
+
+```python
+UL_SIMS = {
+    "ebno_db" : list(np.arange(-5, 20, 4.0)),
+    "cdl_model" : ["A", "B", "C", "D", "E"],
+    "delay_spread" : 100e-9,
+    "domain" : "freq",
+    "direction" : "uplink",
+    "perfect_csi" : True,
+    "speed" : 0.0,
+    "cyclic_prefix_length" : 6,
+    "pilot_ofdm_symbol_indices" : [2, 11],
+    "ber" : [],
+    "bler" : [],
+    "duration" : None
+}
+start = time.time()
+for cdl_model in UL_SIMS["cdl_model"]:
+    model = Model(domain=UL_SIMS["domain"],
+                  direction=UL_SIMS["direction"],
+                  cdl_model=cdl_model,
+                  delay_spread=UL_SIMS["delay_spread"],
+                  perfect_csi=UL_SIMS["perfect_csi"],
+                  speed=UL_SIMS["speed"],
+                  cyclic_prefix_length=UL_SIMS["cyclic_prefix_length"],
+                  pilot_ofdm_symbol_indices=UL_SIMS["pilot_ofdm_symbol_indices"])
+    ber, bler = sim_ber(model,
+                        UL_SIMS["ebno_db"],
+                        batch_size=256,
+                        max_mc_iter=100,
+                        num_target_block_errors=1000)
+    UL_SIMS["ber"].append(list(ber.numpy()))
+    UL_SIMS["bler"].append(list(bler.numpy()))
+UL_SIMS["duration"] = time.time() - start
+```
+
+
+```python
+EbNo [dB] |        BER |       BLER |  bit errors |    num bits | block errors |  num blocks | runtime [s] |    status
+---------------------------------------------------------------------------------------------------------------------------------------
+     -5.0 | 1.6160e-01 | 6.7627e-01 |      238284 |     1474560 |         1385 |        2048 |        16.5 |reached target block errors
+     -1.0 | 8.6594e-02 | 3.8932e-01 |      191532 |     2211840 |         1196 |        3072 |         0.1 |reached target block errors
+      3.0 | 3.6839e-02 | 1.7790e-01 |      162964 |     4423680 |         1093 |        6144 |         0.3 |reached target block errors
+      7.0 | 1.0374e-02 | 5.3660e-02 |      145327 |    14008320 |         1044 |       19456 |         0.9 |reached target block errors
+     11.0 | 2.2704e-03 | 1.2545e-02 |      130566 |    57507840 |         1002 |       79872 |         3.5 |reached target block errors
+     15.0 | 3.6389e-04 | 2.0898e-03 |       26829 |    73728000 |          214 |      102400 |         4.5 |reached max iter
+     19.0 | 3.5034e-05 | 2.0508e-04 |        2583 |    73728000 |           21 |      102400 |         4.5 |reached max iter
+EbNo [dB] |        BER |       BLER |  bit errors |    num bits | block errors |  num blocks | runtime [s] |    status
+---------------------------------------------------------------------------------------------------------------------------------------
+     -5.0 | 8.4574e-03 | 5.4416e-02 |      112238 |    13271040 |         1003 |       18432 |        12.9 |reached target block errors
+     -1.0 | 4.3053e-04 | 2.8906e-03 |       31742 |    73728000 |          296 |      102400 |         4.5 |reached max iter
+      3.0 | 1.1136e-05 | 7.8125e-05 |         821 |    73728000 |            8 |      102400 |         4.5 |reached max iter
+      7.0 | 0.0000e+00 | 0.0000e+00 |           0 |    73728000 |            0 |      102400 |         4.5 |reached max iter
+Simulation stopped as no error occurred @ EbNo = 7.0 dB.
+EbNo [dB] |        BER |       BLER |  bit errors |    num bits | block errors |  num blocks | runtime [s] |    status
+---------------------------------------------------------------------------------------------------------------------------------------
+     -5.0 | 5.0412e-02 | 2.6050e-01 |      148671 |     2949120 |         1067 |        4096 |        12.3 |reached target block errors
+     -1.0 | 1.0788e-02 | 5.9398e-02 |      135220 |    12533760 |         1034 |       17408 |         0.8 |reached target block errors
+      3.0 | 1.3094e-03 | 7.8125e-03 |       96541 |    73728000 |          800 |      102400 |         4.5 |reached max iter
+      7.0 | 1.0550e-04 | 6.5430e-04 |        7778 |    73728000 |           67 |      102400 |         4.5 |reached max iter
+     11.0 | 1.1271e-05 | 5.8594e-05 |         831 |    73728000 |            6 |      102400 |         4.5 |reached max iter
+     15.0 | 0.0000e+00 | 0.0000e+00 |           0 |    73728000 |            0 |      102400 |         4.5 |reached max iter
+Simulation stopped as no error occurred @ EbNo = 15.0 dB.
+EbNo [dB] |        BER |       BLER |  bit errors |    num bits | block errors |  num blocks | runtime [s] |    status
+---------------------------------------------------------------------------------------------------------------------------------------
+     -5.0 | 2.6213e-01 | 9.9219e-01 |      193264 |      737280 |         1016 |        1024 |        12.4 |reached target block errors
+     -1.0 | 1.9558e-01 | 8.5205e-01 |      288389 |     1474560 |         1745 |        2048 |         0.1 |reached target block errors
+      3.0 | 7.7571e-02 | 3.9583e-01 |      171574 |     2211840 |         1216 |        3072 |         0.1 |reached target block errors
+      7.0 | 9.2380e-03 | 5.4796e-02 |      122598 |    13271040 |         1010 |       18432 |         0.8 |reached target block errors
+     11.0 | 3.0828e-04 | 2.1289e-03 |       22729 |    73728000 |          218 |      102400 |         4.4 |reached max iter
+     15.0 | 0.0000e+00 | 0.0000e+00 |           0 |    73728000 |            0 |      102400 |         4.4 |reached max iter
+Simulation stopped as no error occurred @ EbNo = 15.0 dB.
+EbNo [dB] |        BER |       BLER |  bit errors |    num bits | block errors |  num blocks | runtime [s] |    status
+---------------------------------------------------------------------------------------------------------------------------------------
+     -5.0 | 2.6030e-01 | 9.8730e-01 |      191916 |      737280 |         1011 |        1024 |        12.3 |reached target block errors
+     -1.0 | 1.9360e-01 | 8.4131e-01 |      285471 |     1474560 |         1723 |        2048 |         0.1 |reached target block errors
+      3.0 | 9.0027e-02 | 4.3815e-01 |      199126 |     2211840 |         1346 |        3072 |         0.1 |reached target block errors
+      7.0 | 2.2223e-02 | 1.1892e-01 |      147458 |     6635520 |         1096 |        9216 |         0.4 |reached target block errors
+     11.0 | 2.6109e-03 | 1.5174e-02 |      125123 |    47923200 |         1010 |       66560 |         2.9 |reached target block errors
+     15.0 | 1.5816e-04 | 1.0254e-03 |       11661 |    73728000 |          105 |      102400 |         4.4 |reached max iter
+     19.0 | 5.3575e-06 | 2.9297e-05 |         395 |    73728000 |            3 |      102400 |         4.5 |reached max iter
+```
+```python
+[32]:
+```
+
+```python
+# Load results (un comment to show saved results from the cell above)
+#UL_SIMS = eval(" {'ebno_db': [-5.0, -1.0, 3.0, 7.0, 11.0, 15.0, 19.0], 'cdl_model': ['A', 'B', 'C', 'D', 'E'], 'delay_spread': 1e-07, 'domain': 'freq', 'direction': 'uplink', 'perfect_csi': True, 'speed': 0.0, 'cyclic_prefix_length': 6, 'pilot_ofdm_symbol_indices': [2, 11], 'ber': [[0.15734931098090277, 0.08457483362268518, 0.037556287977430554, 0.010201009114583333, 0.0021562364366319443, 0.0004007025824652778, 3.371853298611111e-05], [0.00840893126370614, 0.0004711371527777778, 6.686740451388889e-06, 0.0, 0.0, 0.0, 0.0], [0.05171542697482639, 0.010815988179125817, 0.0012970784505208334, 7.362196180555556e-05, 2.292209201388889e-06, 2.4142795138888887e-06, 0.0], [0.2598809136284722, 0.19302435980902777, 0.07624737774884259, 0.01058502197265625, 0.0003685031467013889, 2.102322048611111e-06, 0.0], [0.25929497612847224, 0.1982150607638889, 0.08891149450231481, 0.021271128713348766, 0.002695751694775132, 0.00017363823784722222, 5.126953125e-06]], 'bler': [[0.65869140625, 0.3756510416666667, 0.18131510416666666, 0.05242598684210526, 0.011625744047619048, 0.00220703125, 0.00017578125], [0.05396792763157895, 0.0032421875, 7.8125e-05, 0.0, 0.0, 0.0, 0.0], [0.26513671875, 0.05962775735294118, 0.007724609375, 0.0005078125, 9.765625e-06, 9.765625e-06, 0.0], [0.986328125, 0.84765625, 0.390625, 0.06243896484375, 0.00248046875, 1.953125e-05, 0.0], [0.98046875, 0.8515625, 0.4348958333333333, 0.115234375, 0.015562996031746032, 0.001083984375, 2.9296875e-05]], 'duration': 679.6544234752655} ")
+print("Simulation duration: {:1.2f} [h]".format(UL_SIMS["duration"]/3600))
+plt.figure()
+plt.xlabel(r"$E_b/N_0$ (dB)")
+plt.ylabel("BLER")
+plt.grid(which="both")
+plt.title("8x4 MIMO Uplink - Frequency Domain Modeling");
+plt.ylim([1e-3, 1.1])
+legend = []
+for i, bler in enumerate(UL_SIMS["bler"]):
+    plt.semilogy(UL_SIMS["ebno_db"], bler)
+    legend.append("CDL-{}".format(UL_SIMS["cdl_model"][i]))
+plt.legend(legend);
+```
+
+
+```python
+Simulation duration: 0.04 [h]
+```
+
+
+### Compare Downlink Performance Over the Different CDL Models<a class="headerlink" href="https://nvlabs.github.io/sionna/examples/MIMO_OFDM_Transmissions_over_CDL.html#Compare-Downlink-Performance-Over-the-Different-CDL-Models" title="Permalink to this headline"></a>
+    
+We will now compare the downlink performance over the various CDL models assuming perfect CSI at the receiver.
+    
+If you do not want to run the simulation your self, you skip the next cell and visualize the result in the next cell.
+
+```python
+[33]:
+```
+
+```python
+DL_SIMS = {
+    "ebno_db" : list(np.arange(-5, 20, 4.0)),
+    "cdl_model" : ["A", "B", "C", "D", "E"],
+    "delay_spread" : 100e-9,
+    "domain" : "freq",
+    "direction" : "downlink",
+    "perfect_csi" : True,
+    "speed" : 0.0,
+    "cyclic_prefix_length" : 6,
+    "pilot_ofdm_symbol_indices" : [2, 11],
+    "ber" : [],
+    "bler" : [],
+    "duration" : None
+}
+start = time.time()
+for cdl_model in DL_SIMS["cdl_model"]:
+    model = Model(domain=DL_SIMS["domain"],
+                  direction=DL_SIMS["direction"],
+                  cdl_model=cdl_model,
+                  delay_spread=DL_SIMS["delay_spread"],
+                  perfect_csi=DL_SIMS["perfect_csi"],
+                  speed=DL_SIMS["speed"],
+                  cyclic_prefix_length=DL_SIMS["cyclic_prefix_length"],
+                  pilot_ofdm_symbol_indices=DL_SIMS["pilot_ofdm_symbol_indices"])
+    ber, bler = sim_ber(model,
+                        DL_SIMS["ebno_db"],
+                        batch_size=256,
+                        max_mc_iter=100,
+                        num_target_block_errors=1000)
+    DL_SIMS["ber"].append(list(ber.numpy()))
+    DL_SIMS["bler"].append(list(bler.numpy()))
+DL_SIMS["duration"] = time.time() -  start
+```
+
+
+```python
+EbNo [dB] |        BER |       BLER |  bit errors |    num bits | block errors |  num blocks | runtime [s] |    status
+---------------------------------------------------------------------------------------------------------------------------------------
+     -5.0 | 3.5227e-01 | 9.6191e-01 |      519446 |     1474560 |         1970 |        2048 |        12.5 |reached target block errors
+     -1.0 | 2.6469e-01 | 8.3008e-01 |      390294 |     1474560 |         1700 |        2048 |         0.1 |reached target block errors
+      3.0 | 1.5529e-01 | 5.5908e-01 |      228982 |     1474560 |         1145 |        2048 |         0.1 |reached target block errors
+      7.0 | 7.4751e-02 | 3.0664e-01 |      220451 |     2949120 |         1256 |        4096 |         0.2 |reached target block errors
+     11.0 | 2.4375e-02 | 1.1241e-01 |      161742 |     6635520 |         1036 |        9216 |         0.5 |reached target block errors
+     15.0 | 6.6249e-03 | 3.3366e-02 |      146532 |    22118400 |         1025 |       30720 |         1.7 |reached target block errors
+     19.0 | 1.0675e-03 | 5.7227e-03 |       78701 |    73728000 |          586 |      102400 |         5.7 |reached max iter
+EbNo [dB] |        BER |       BLER |  bit errors |    num bits | block errors |  num blocks | runtime [s] |    status
+---------------------------------------------------------------------------------------------------------------------------------------
+     -5.0 | 3.9004e-02 | 2.1270e-01 |      143784 |     3686400 |         1089 |        5120 |        12.0 |reached target block errors
+     -1.0 | 3.3153e-03 | 2.2070e-02 |      109994 |    33177600 |         1017 |       46080 |         2.5 |reached target block errors
+      3.0 | 1.0097e-04 | 7.4219e-04 |        7444 |    73728000 |           76 |      102400 |         5.6 |reached max iter
+      7.0 | 4.6115e-06 | 1.9531e-05 |         340 |    73728000 |            2 |      102400 |         5.6 |reached max iter
+     11.0 | 0.0000e+00 | 0.0000e+00 |           0 |    73728000 |            0 |      102400 |         5.6 |reached max iter
+Simulation stopped as no error occurred @ EbNo = 11.0 dB.
+EbNo [dB] |        BER |       BLER |  bit errors |    num bits | block errors |  num blocks | runtime [s] |    status
+---------------------------------------------------------------------------------------------------------------------------------------
+     -5.0 | 1.6099e-01 | 6.4209e-01 |      237390 |     1474560 |         1315 |        2048 |        11.9 |reached target block errors
+     -1.0 | 5.1753e-02 | 2.4277e-01 |      190784 |     3686400 |         1243 |        5120 |         0.3 |reached target block errors
+      3.0 | 8.7685e-03 | 4.8363e-02 |      135762 |    15482880 |         1040 |       21504 |         1.2 |reached target block errors
+      7.0 | 9.0055e-04 | 5.4492e-03 |       66396 |    73728000 |          558 |      102400 |         5.6 |reached max iter
+     11.0 | 4.9045e-05 | 3.2227e-04 |        3616 |    73728000 |           33 |      102400 |         5.6 |reached max iter
+     15.0 | 5.0863e-06 | 3.9063e-05 |         375 |    73728000 |            4 |      102400 |         5.6 |reached max iter
+     19.0 | 0.0000e+00 | 0.0000e+00 |           0 |    73728000 |            0 |      102400 |         5.6 |reached max iter
+Simulation stopped as no error occurred @ EbNo = 19.0 dB.
+EbNo [dB] |        BER |       BLER |  bit errors |    num bits | block errors |  num blocks | runtime [s] |    status
+---------------------------------------------------------------------------------------------------------------------------------------
+     -5.0 | 4.2063e-01 | 1.0000e+00 |      310120 |      737280 |         1024 |        1024 |        11.9 |reached target block errors
+     -1.0 | 3.7341e-01 | 1.0000e+00 |      275310 |      737280 |         1024 |        1024 |         0.1 |reached target block errors
+      3.0 | 2.9153e-01 | 9.7070e-01 |      429878 |     1474560 |         1988 |        2048 |         0.1 |reached target block errors
+      7.0 | 1.5083e-01 | 6.7578e-01 |      222415 |     1474560 |         1384 |        2048 |         0.1 |reached target block errors
+     11.0 | 2.8208e-02 | 1.6455e-01 |      124781 |     4423680 |         1011 |        6144 |         0.3 |reached target block errors
+     15.0 | 1.4907e-03 | 1.1038e-02 |       97819 |    65617920 |         1006 |       91136 |         5.0 |reached target block errors
+     19.0 | 9.5622e-06 | 8.7891e-05 |         705 |    73728000 |            9 |      102400 |         5.6 |reached max iter
+EbNo [dB] |        BER |       BLER |  bit errors |    num bits | block errors |  num blocks | runtime [s] |    status
+---------------------------------------------------------------------------------------------------------------------------------------
+     -5.0 | 4.2489e-01 | 1.0000e+00 |      313263 |      737280 |         1024 |        1024 |        11.8 |reached target block errors
+     -1.0 | 3.8312e-01 | 1.0000e+00 |      282469 |      737280 |         1024 |        1024 |         0.1 |reached target block errors
+      3.0 | 3.1855e-01 | 9.7754e-01 |      234862 |      737280 |         1001 |        1024 |         0.1 |reached target block errors
+      7.0 | 1.9283e-01 | 7.3975e-01 |      284333 |     1474560 |         1515 |        2048 |         0.1 |reached target block errors
+     11.0 | 7.3378e-02 | 3.4017e-01 |      162301 |     2211840 |         1045 |        3072 |         0.2 |reached target block errors
+     15.0 | 1.3921e-02 | 7.7374e-02 |      133424 |     9584640 |         1030 |       13312 |         0.7 |reached target block errors
+     19.0 | 9.6602e-04 | 6.3379e-03 |       71223 |    73728000 |          649 |      102400 |         5.6 |reached max iter
+```
+```python
+[34]:
+```
+
+```python
+# Load results (uncomment to show saved results from the cell above)
+#DL_SIMS = eval(" {'ebno_db': [-5.0, -1.0, 3.0, 7.0, 11.0, 15.0, 19.0], 'cdl_model': ['A', 'B', 'C', 'D', 'E'], 'delay_spread': 1e-07, 'domain': 'freq', 'direction': 'downlink', 'perfect_csi': True, 'speed': 0.0, 'cyclic_prefix_length': 6, 'pilot_ofdm_symbol_indices': [2, 11], 'ber': [[0.3537068684895833, 0.270849609375, 0.15740831163194444, 0.06897718641493056, 0.027840169270833333, 0.0057531419143178105, 0.0009830457899305555], [0.03906005859375, 0.003267002566425121, 7.911512586805555e-05, 2.1158854166666666e-06, 0.0, 0.0, 0.0], [0.16080593532986112, 0.048251139322916664, 0.008695991960152116, 0.0008932291666666666, 4.695638020833333e-05, 3.2416449652777776e-06, 0.0], [0.41819661458333335, 0.37223714192708335, 0.29248792860243056, 0.14547797309027777, 0.025933353484623015, 0.0015725519627700617, 2.2610134548611112e-05], [0.4292819552951389, 0.3885362413194444, 0.30676472981770836, 0.18775770399305555, 0.06542392306857639, 0.01351276625934829, 0.0008977457682291666]], 'bler': [[0.96337890625, 0.84423828125, 0.5703125, 0.287353515625, 0.12337239583333333, 0.028894761029411766, 0.005400390625], [0.2185546875, 0.021505604619565216, 0.000576171875, 9.765625e-06, 0.0, 0.0, 0.0], [0.6484375, 0.2392578125, 0.04682849702380952, 0.0053125, 0.000322265625, 1.953125e-05, 0.0], [1.0, 1.0, 0.9716796875, 0.6572265625, 0.15457589285714285, 0.010883246527777777, 0.000166015625], [1.0, 1.0, 0.9638671875, 0.71240234375, 0.306640625, 0.07647235576923077, 0.0060546875]], 'duration': 558.1218893527985} ")
+print("Simulation duration: {:1.2f} [h]".format(DL_SIMS["duration"]/3600))
+plt.figure()
+plt.xlabel(r"$E_b/N_0$ (dB)")
+plt.ylabel("BLER")
+plt.grid(which="both")
+plt.title("8x4 MIMO Downlink - Frequency Domain Modeling");
+plt.ylim([1e-3, 1.1])
+legend = []
+for i, bler in enumerate(DL_SIMS["bler"]):
+    plt.semilogy(DL_SIMS["ebno_db"], bler)
+    legend.append("CDL-{}".format(DL_SIMS["cdl_model"][i]))
+plt.legend(legend);
+```
+
+
+```python
+Simulation duration: 0.04 [h]
+```
+
+
